@@ -43,6 +43,8 @@ Mapping and specific function calls included for person, event and media data. (
 
 To use this functionality, php needs to know where to find the python interpreter. It will try to find it itself, but you can specify a specific command using **PYTHON_EXE**=. (this should be an absolute path)  You can also create your own platform specific version of the binary and point to it with **UNPICKLE_BINARY**=.
 
+URLs for media files are currently interpreted as a pointer to an AWS S3 bucket specified with **AWS_BUCKET** environment variable (defaults to *grampsmedia*) in `us-east-1` unless a different region is specified by **AWS_REGION**. 
+Their 'relative' path in that bucket can be given with the **GEDCOM_MEDIA_PATH** prefix which defaults to `gedcomx/media`
 ## Change log
 
 This package is a work in progress.
