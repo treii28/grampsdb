@@ -53,6 +53,7 @@ example `.env` entries:
     PYTHON_EXE=/usr/bin/python3
     AWS_REGION=us-east-2
     AWS_BUCKET=woodgen
+    GEDCOM_MEDIA_PATH=gedcomx/media
     # optional
     UNPICKLE_BINARY=bin/unpickle
 
