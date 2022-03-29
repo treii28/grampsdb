@@ -1,5 +1,5 @@
 {
-    "name": "treii28/grampsdb",
+    "name": "treii28/grampsdb-laravel",
     "description": "Helper tools to access the sqlite3 database from gramps genealogy software",
     "license": "MIT",
     "authors": [
@@ -9,8 +9,8 @@
             "homepage": "http://wijg.org"
         }
     ],
-    "homepage": "https://github.com/treii28/grampsdb",
-    "keywords": ["Laravel", "Grampsdb"],
+    "homepage": "https://github.com/treii28/grampsdb-laravel",
+    "keywords": ["Laravel", "Grampsdb", "gramps", "genealogy", "GEDCOM"],
     "require": {
         "illuminate/support": "~8"
     },

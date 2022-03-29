@@ -12,7 +12,7 @@ Gramps sqlite3 database helper to allow accessing the grampsdb in laravel.
 Via Composer
 
 ``` bash
-$ composer require treii28/grampsdb
+$ composer require treii28/grampsdb-laravel
 ```
 
 ## Usage
