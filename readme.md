@@ -21,7 +21,6 @@ This uses a specified database configuration in your config/database.php
 
 e.g.:
 
-`
 
     'connections' => [
 
@@ -31,7 +30,6 @@ e.g.:
             'prefix' => ''
         ],
     // ...
-`
 
 Thus the environment setting for **GRAMPS_SQLITE** can be set to point to a different filename under the `./database/` project path.
 
@@ -48,8 +46,6 @@ Their 'relative' path in that bucket can be given with the **GEDCOM_MEDIA_PATH**
 
 example `.env` entries:
 
-`
-
     # gramps helper configuration
     GRAMPS_SQLITE=data/grampsdb.sqlite
     # gramps sqlite3 config key in database.php
@@ -59,8 +55,6 @@ example `.env` entries:
     AWS_BUCKET=woodgen
     # optional
     UNPICKLE_BINARY=bin/unpickle
-
-`
 
 ## Change log
 
