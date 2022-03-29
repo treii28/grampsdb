@@ -21,7 +21,7 @@ This uses a specified database configuration in your config/database.php
 
 e.g.:
 
-
+```php
     'connections' => [
 
         'grampsdb' => [
@@ -30,6 +30,7 @@ e.g.:
             'prefix' => ''
         ],
     // ...
+```
 
 Thus the environment setting for **GRAMPS_SQLITE** can be set to point to a different filename under the `./database/` project path.
 
@@ -46,6 +47,7 @@ Their 'relative' path in that bucket can be given with the **GEDCOM_MEDIA_PATH**
 
 example `.env` entries:
 
+```dotenv
     # gramps helper configuration
     GRAMPS_SQLITE=data/grampsdb.sqlite
     # gramps sqlite3 config key in database.php
@@ -56,6 +58,32 @@ example `.env` entries:
     GEDCOM_MEDIA_PATH=gedcomx/media
     # optional
     UNPICKLE_BINARY=bin/unpickle
+```
+
+example usage:
+
+```php
+    use Treii28\Grampsdb\GrampsdbHelper;
+
+    // use a specific static 'key' configured in database.php (optional)
+    GrampsdbHelper::setDbConnection('grampsdb');
+
+    // find someone by their gramps_id
+    $gramps_id = 'I12441296307';
+    $person1 = GrampsdbHelper::getPersonById($gramps_id);
+
+
+    // find someone by their 'handle'    
+    $personHandle = 'efaddc1e2db7f12032d5c4f9560';
+    $withMedia = true;
+    $person = GrampsdbHelper::getPersonByHandle($personHandle, $withMedia);
+
+    // get just the media references by handle
+    $person_media = GrampsdbHelper::getMediaByPersonHandle($phan);
+
+    // get the events related to a person
+    $pevts = GrampsdbHelper::getEventsByPersonHandle($phan);
+```
 
 ## Change log
 
