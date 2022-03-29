@@ -45,6 +45,23 @@ To use this functionality, php needs to know where to find the python interprete
 
 URLs for media files are currently interpreted as a pointer to an AWS S3 bucket specified with **AWS_BUCKET** environment variable (defaults to *grampsmedia*) in `us-east-1` unless a different region is specified by **AWS_REGION**. 
 Their 'relative' path in that bucket can be given with the **GEDCOM_MEDIA_PATH** prefix which defaults to `gedcomx/media`
+
+example `.env` entries:
+
+`
+
+    # gramps helper configuration
+    GRAMPS_SQLITE=data/grampsdb.sqlite
+    # gramps sqlite3 config key in database.php
+    GRAMPS_DBNAME=grampsdb
+    PYTHON_EXE=/usr/bin/python3
+    AWS_REGION=us-east-2
+    AWS_BUCKET=woodgen
+    # optional
+    UNPICKLE_BINARY=bin/unpickle
+
+`
+
 ## Change log
 
 This package is a work in progress.
