@@ -76,13 +76,13 @@ example usage:
     // find someone by their 'handle'    
     $personHandle = 'efaddc1e2db7f12032d5c4f9560';
     $withMedia = true;
-    $person = GrampsdbHelper::getPersonByHandle($personHandle, $withMedia);
+    $person2 = GrampsdbHelper::getPersonByHandle($personHandle, $withMedia);
 
     // get just the media references by handle
-    $person_media = GrampsdbHelper::getMediaByPersonHandle($phan);
+    $person_media = GrampsdbHelper::getMediaByPersonHandle($personHandle);
 
     // get the events related to a person
-    $pevts = GrampsdbHelper::getEventsByPersonHandle($phan);
+    $pevts = GrampsdbHelper::getEventsByPersonHandle($personHandle);
 ```
 
 ## Change log
