@@ -97,13 +97,18 @@ class GrampsdbHelper
     public static function unpickle($b)
     {
         $cmd = realpath(__DIR__."/../bin/unpickle");
+        // see if an environment unpickle binary has been specified
+        if(function_exists('env') && is_file(env('UNPICKLE_BINARY')) && is_executable(env('UNPICKLE_BINARY')))
+            $cmd = env('UNPICKLE_BINARY');
         if(!(is_file($cmd) && is_executable($cmd))) { // make sure unpickle cmd exists
+            // try to see if the python script exists if no binary does
             if (is_file($cmd.".py")) {
                 $cmd = sprintf("%s %s.py", self::getPythonExecutable(), $cmd);
             } else
                 return static::unpyckle($b); // try direct python call
         }
 
+        // use proc_open to execute python code using raw binary data from stdin
         $descriptorspec = [
             ["pipe", "r"],  // stdin is a pipe that the child will read from
             ["pipe", "w"],  // stdout is a pipe that the child will write to
