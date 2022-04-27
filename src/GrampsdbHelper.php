@@ -202,7 +202,7 @@ class GrampsdbHelper
     private static function mapPersonData($data)
     {
         if(count($data) != 21) return false;
-        $genders = ['Female','Male'];
+        $genders = ['Female','Male','Unknown'];
         $genderId = $data[2];
         return [
             'handle' => $data[0],
