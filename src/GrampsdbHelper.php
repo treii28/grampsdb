@@ -263,8 +263,6 @@ class GrampsdbHelper
     public static function getPersonByHandle($ghan,$withMedia=false)
     {
         $person = self::getDbHandle()->table('person')->where('handle', $ghan)->first();
-        if($withMedia)
-            $person->media = self::getMediaByPersonHandle($person->handle);
 
         // decode blob_data if any
         if(property_exists($person, 'blob_data')) {
@@ -273,9 +271,31 @@ class GrampsdbHelper
             unset($person->blob_data);
         }
 
+        if($withMedia)
+            $person->media = self::getMediaByPersonHandle($person->handle);
+
         return $person;
     }
 
+    /**
+     * @return array
+     */
+    public static function getMedia()
+    {
+        $grampsMedia = [];
+        $gMedia = self::getDbHandle()->table('media')->get();
+        foreach($gMedia as $mRec) {
+            $gid = $mRec->gramps_id;
+            // decode blob_data if any
+            if(property_exists($mRec, 'blob_data')) {
+                $blob_data = self::unpyckle($mRec->blob_data);
+                $mRec->type_data = self::mapMediaData($blob_data);
+                unset($mRec->blob_data);
+            }
+            $grampsMedia[$gid] = $mRec;
+        }
+        return $grampsMedia;
+    }
     /**
      * get a specific person by their gramps_id, optionally collecting their media as well
      *
@@ -288,8 +308,11 @@ class GrampsdbHelper
     {
         $person = self::getDbHandle()->table('person')->where('gramps_id', $gid)->first();
         // decode blob_data if any
-        if(property_exists($person, 'blob_data'))
-            $person->blob_data = self::unpyckle($person->blob_data);
+        if(property_exists($person, 'blob_data')) {
+            $blob_data = self::unpyckle($person->blob_data);
+            $person->type_data = self::mapPersonData($blob_data);
+            unset($person->blob_data);
+        }
 
         if($withMedia)
             $person->media = self::getMediaByPersonHandle($person->handle);
@@ -324,6 +347,42 @@ class GrampsdbHelper
         if(is_object($gPerson) && property_exists($gPerson, 'handle'))
             return $gPerson->handle;
         else return false;
+    }
+
+    /**
+     * @param string $gid
+     * @return \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Query\Builder|object|null
+     */
+    public static function getMediaById($gid)
+    {
+        $media = self::getDbHandle()->table('media')->where('gramps_id', $gid)->first();
+
+        // decode blob_data if any
+        if(property_exists($media, 'blob_data')) {
+            $blob_data = self::unpyckle($media->blob_data);
+            $media->type_data = self::mapMediaData($blob_data);
+            unset($media->blob_data);
+        }
+
+        return $media;
+    }
+
+    /**
+     * @param string $ghan
+     * @return \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Query\Builder|object|null
+     */
+    public static function getMediaByHandle($ghan)
+    {
+        $media = self::getDbHandle()->table('media')->where('handle', $ghan)->first();
+
+        // decode blob_data if any
+        if(property_exists($media, 'blob_data')) {
+            $blob_data = self::unpyckle($media->blob_data);
+            $media->type_data = self::mapMediaData($blob_data);
+            unset($media->blob_data);
+        }
+
+        return $media;
     }
 
     /**
