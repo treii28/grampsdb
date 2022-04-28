@@ -56,21 +56,21 @@ class GrampsdbHelper
      * @return string|null
      * @throws \Exception if unable to find a valid python executable
      */
-    private static function getPythonExecutable($path=null)
+    private static function getPythonExecutable($path = null)
     {
         $pyExe = null;
 
-        if(is_file($path) && is_executable($path)) { // use specified if available
+        if (is_file($path) && is_executable($path)) { // use specified if available
             $pyExe = $path;
-        } else if(function_exists('env')) { // use env if available
+        } else if (function_exists('env')) { // use env if available
             $pyExe = env('PYTHON_EXE');
-        } else if(is_file('/usr/bin/which') && is_executable('/usr/bin/which')) {
+        } else if (is_file('/usr/bin/which') && is_executable('/usr/bin/which')) {
             // see if it is in the unix path
             $pyExe = exec('/usr/bin/which python');
         }
 
         // did we find something useable?
-        if(!is_file($pyExe) && is_executable($pyExe))
+        if (!is_file($pyExe) && is_executable($pyExe))
             throw new \Exception("python executable not found!");
 
         return $pyExe;
@@ -81,8 +81,10 @@ class GrampsdbHelper
      *
      * @param string $connName
      */
-    public static function setDbConnection($connName='grampsdb')
-    { static::$dbConn = $connName; }
+    public static function setDbConnection($connName = 'grampsdb')
+    {
+        static::$dbConn = $connName;
+    }
 
     /**
      * get the current DB::connection for the gramps database
@@ -90,27 +92,27 @@ class GrampsdbHelper
      * @param string|null $connName
      * @return \Illuminate\Database\ConnectionInterface
      */
-    public static function getDbHandle($connName=null)
+    public static function getDbHandle($connName = null)
     {
-        if(empty($connName)) $connName = self::$dbConn;
+        if (empty($connName)) $connName = self::$dbConn;
         return DB::connection($connName);
     }
 
     /**
      * call either a pyinstaller binary or python script with raw blob data to be unpickled
      *
-     * @param string $b  binary data of blob
+     * @param string $b binary data of blob
      * @return false|mixed
      */
     public static function unpickle($b)
     {
-        $cmd = realpath(__DIR__."/../bin/unpickle");
+        $cmd = realpath(__DIR__ . "/../bin/unpickle");
         // see if an environment unpickle binary has been specified
-        if(function_exists('env') && is_file(env('UNPICKLE_BINARY')) && is_executable(env('UNPICKLE_BINARY')))
+        if (function_exists('env') && is_file(env('UNPICKLE_BINARY')) && is_executable(env('UNPICKLE_BINARY')))
             $cmd = base_path(env('UNPICKLE_BINARY'));
-        if(!(is_file($cmd) && is_executable($cmd))) { // make sure unpickle cmd exists
+        if (!(is_file($cmd) && is_executable($cmd))) { // make sure unpickle cmd exists
             // try to see if the python script exists if no binary does
-            if (is_file($cmd.".py")) {
+            if (is_file($cmd . ".py")) {
                 $cmd = sprintf("%s %s.py", self::getPythonExecutable(), $cmd);
             } else
                 return self::unpyckle($b); // try direct python call
@@ -144,7 +146,7 @@ class GrampsdbHelper
             // proc_close in order to avoid a deadlock
             $return_value = proc_close($process);
 
-            if(self::isJson($output))
+            if (self::isJson($output))
                 return json_decode($output);
             else
                 return false;
@@ -176,13 +178,13 @@ class GrampsdbHelper
      * @param $mixed
      * @return array|false|mixed|string|string[]|null
      */
-    public static function utf8ize( $mixed )
+    public static function utf8ize($mixed)
     {
-        if(is_object($mixed))
+        if (is_object($mixed))
             $mixed = (array)$mixed;
         if (is_array($mixed)) {
             // make sure any blob data has already been unpickled to an array
-            if(array_key_exists('blob_data', $mixed) && !is_array($mixed['blob_data']))
+            if (array_key_exists('blob_data', $mixed) && !is_array($mixed['blob_data']))
                 $mixed['blob_data'] = self::unpyckle($mixed['blob_data']);
             foreach ($mixed as $key => $value) {
                 $mixed[$key] = self::utf8ize($value);
@@ -201,8 +203,8 @@ class GrampsdbHelper
      */
     private static function mapPersonData($data)
     {
-        if(count($data) != 21) return false;
-        $genders = ['Female','Male','Unknown'];
+        if (count($data) != 21) return false;
+        $genders = ['Female', 'Male', 'Unknown'];
         $genderId = $data[2];
         return [
             'handle' => $data[0],
@@ -238,10 +240,10 @@ class GrampsdbHelper
     {
         $grampsPersons = [];
         $gPersons = self::getDbHandle()->table('person')->get();
-        foreach($gPersons as $pRec) {
+        foreach ($gPersons as $pRec) {
             $gid = $pRec->gramps_id;
             // decode blob_data if any
-            if(property_exists($pRec, 'blob_data')) {
+            if (property_exists($pRec, 'blob_data')) {
                 $blob_data = self::unpyckle($pRec->blob_data);
                 $pRec->type_data = self::mapPersonData($blob_data);
                 unset($pRec->blob_data);
@@ -256,22 +258,22 @@ class GrampsdbHelper
      * get a specific person by their handle, optionally collecting their media as well
      *
      * @param string $ghan
-     * @param false $withMedia  whether to get all associated media references as a sub-element of the array
+     * @param false $withMedia whether to get all associated media references as a sub-element of the array
      * @return \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Query\Builder|object|null
      * @see getMediaByPersonHandle()
      */
-    public static function getPersonByHandle($ghan,$withMedia=false)
+    public static function getPersonByHandle($ghan, $withMedia = false)
     {
         $person = self::getDbHandle()->table('person')->where('handle', $ghan)->first();
 
         // decode blob_data if any
-        if(property_exists($person, 'blob_data')) {
+        if (property_exists($person, 'blob_data')) {
             $blob_data = self::unpyckle($person->blob_data);
             $person->type_data = self::mapPersonData($blob_data);
             unset($person->blob_data);
         }
 
-        if($withMedia)
+        if ($withMedia)
             $person->media = self::getMediaByPersonHandle($person->handle);
 
         return $person;
@@ -284,10 +286,10 @@ class GrampsdbHelper
     {
         $grampsMedia = [];
         $gMedia = self::getDbHandle()->table('media')->get();
-        foreach($gMedia as $mRec) {
+        foreach ($gMedia as $mRec) {
             $gid = $mRec->gramps_id;
             // decode blob_data if any
-            if(property_exists($mRec, 'blob_data')) {
+            if (property_exists($mRec, 'blob_data')) {
                 $blob_data = self::unpyckle($mRec->blob_data);
                 $mRec->type_data = self::mapMediaData($blob_data);
                 unset($mRec->blob_data);
@@ -296,25 +298,26 @@ class GrampsdbHelper
         }
         return $grampsMedia;
     }
+
     /**
      * get a specific person by their gramps_id, optionally collecting their media as well
      *
      * @param string $gid
-     * @param false $withMedia  optionally get their media
+     * @param false $withMedia optionally get their media
      * @return \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Query\Builder|object|null
      * @see getMediaByPersonHandle()
      */
-    public static function getPersonById($gid, $withMedia=false)
+    public static function getPersonById($gid, $withMedia = false)
     {
         $person = self::getDbHandle()->table('person')->where('gramps_id', $gid)->first();
         // decode blob_data if any
-        if(property_exists($person, 'blob_data')) {
+        if (property_exists($person, 'blob_data')) {
             $blob_data = self::unpyckle($person->blob_data);
             $person->type_data = self::mapPersonData($blob_data);
             unset($person->blob_data);
         }
 
-        if($withMedia)
+        if ($withMedia)
             $person->media = self::getMediaByPersonHandle($person->handle);
         return $person;
     }
@@ -329,7 +332,7 @@ class GrampsdbHelper
     public static function getPersonIdByHandle($ghan)
     {
         $gPerson = self::getPersonByHandle($ghan);
-        if(is_object($gPerson) && property_exists($gPerson, 'gramps_id'))
+        if (is_object($gPerson) && property_exists($gPerson, 'gramps_id'))
             return $gPerson->gramps_id;
         else return false;
     }
@@ -344,11 +347,20 @@ class GrampsdbHelper
     public static function getPersonHandleById($gid)
     {
         $gPerson = self::getPersonById($gid);
-        if(is_object($gPerson) && property_exists($gPerson, 'handle'))
+        if (is_object($gPerson) && property_exists($gPerson, 'handle'))
             return $gPerson->handle;
         else return false;
     }
 
+    private static function prepMedia(&$mObj)
+    {
+        // decode blob_data if any
+        if (property_exists($mObj, 'blob_data')) {
+            $blob_data = self::unpyckle($mObj->blob_data);
+            $mObj->type_data = self::mapMediaData($blob_data);
+            unset($mObj->blob_data);
+        }
+    }
     /**
      * @param string $gid
      * @return \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Query\Builder|object|null
@@ -356,14 +368,7 @@ class GrampsdbHelper
     public static function getMediaById($gid)
     {
         $media = self::getDbHandle()->table('media')->where('gramps_id', $gid)->first();
-
-        // decode blob_data if any
-        if(property_exists($media, 'blob_data')) {
-            $blob_data = self::unpyckle($media->blob_data);
-            $media->type_data = self::mapMediaData($blob_data);
-            unset($media->blob_data);
-        }
-
+        self::prepMedia($media);
         return $media;
     }
 
@@ -374,14 +379,7 @@ class GrampsdbHelper
     public static function getMediaByHandle($ghan)
     {
         $media = self::getDbHandle()->table('media')->where('handle', $ghan)->first();
-
-        // decode blob_data if any
-        if(property_exists($media, 'blob_data')) {
-            $blob_data = self::unpyckle($media->blob_data);
-            $media->type_data = self::mapMediaData($blob_data);
-            unset($media->blob_data);
-        }
-
+        self::prepMedia($media);
         return $media;
     }
 
@@ -395,11 +393,64 @@ class GrampsdbHelper
      */
     public static function getMediaByPersonId($gid)
     {
-        if($pid = self::getPersonHandleById($gid))
+        if ($pid = self::getPersonHandleById($gid))
             return self::getMediaByPersonHandle($pid);
         else return false;
     }
 
+    public static function getSubClass($classType, $handle, $withExtra=false)
+    {
+        $subClass = null;
+        switch($classType) { // todo finish all cases
+            case 'Citation':
+                $subClass = self::getCitationByHandle($handle);
+                break;
+            case 'Event':
+                $subClass = self::getEventByHandle($handle);
+                break;
+            case 'Family':
+                $subClass = self::getFamilyByHandle($handle,$withExtra);
+                // todo finish filling in
+                break;
+            case 'Media':
+                // todo finish filling in
+                break;
+            case 'Media':
+                $subClass = self::getMediaByHandle($handle);
+                break;
+            case 'Note':
+                // todo finish filling in
+                break;
+            case 'Person':
+                $subClass = self::getPersonByHandle($handle);
+                break;
+            case 'Place':
+                // todo finish filling in
+                break;
+            case 'Repository':
+                break;
+            // todo finish filling in
+            case 'Source':
+                // todo finish filling in
+                break;
+            default:
+                break;
+        }
+        return $subClass;
+    }
+    public static function getReferences($withSubs=false)
+    {
+        $gRefs = self::getDbHandle()->table('reference')->get();
+        if($withSubs) {
+            foreach($gRefs as $k => $ref) {
+                switch($ref->obj_class) {
+                    case 'Person':
+                    default:
+                        break;
+                }
+            }
+        }
+    }
     /**
      * @param $pid
      * @param null|string $rc
@@ -528,32 +579,50 @@ class GrampsdbHelper
         ];
     }
 
+    public static function getEventByHandle($ehan)
+    {
+        $eRec = self::getDbHandle()->table('event')->where(['handle' => $ehan])->first();
+        // decode blob_data if any
+        if(property_exists($eRec, 'blob_data')) {
+            // try different methods to unpickle
+            $blob_data = self::unpickle($eRec->blob_data);
+            if ($blob_data != false) {
+                $eRec->type_data = self::mapEventData($blob_data);
+                unset($eRec->blob_data);
+            }
+        }
+        return $eRec;
+    }
+
+    public static function getEventById($gId)
+    {
+        $eRec = self::getDbHandle()->table('event')->where(['gramps_id' => $gId])->first();
+        // decode blob_data if any
+        if(property_exists($eRec, 'blob_data')) {
+            // try different methods to unpickle
+            $blob_data = self::unpickle($eRec->blob_data);
+            if ($blob_data != false) {
+                $eRec->type_data = self::mapEventData($blob_data);
+                unset($eRec->blob_data);
+            }
+        }
+        return $eRec;
+    }
     /**
      * get a list of events associated with a given person handle
      *
-     * @param string $ghan
+     * @param string $gphan
      * @return array
      * @throws \Exception
      */
-    public static function getEventsByPersonHandle($ghan)
+    public static function getEventsByPersonHandle($gphan)
     {
         $events = [];
-        $epRefs = self::getRefByPersonHandle($ghan, 'Event');
+        $epRefs = self::getRefByPersonHandle($gphan, 'Event');
 
         foreach($epRefs as $r) {
-            $rh = $r->ref_handle;
-            $eRec = self::getDbHandle()->table('event')->where(['handle' => $rh])->first();
+            $eRec = self::getEventByHandle($r->ref_handle);
             $eid = $eRec->gramps_id;
-            // decode blob_data if any
-            if(property_exists($eRec, 'blob_data')) {
-                // try different methods to unpickle
-                $blob_data = self::unpickle($eRec->blob_data);
-                if($blob_data != false) {
-                    $eRec->type_data = self::mapEventData($blob_data);
-                    unset($eRec->blob_data);
-                }
-                else throw new \Exception("unable to parse blob_data!");
-            }
             $events[$eid] = $eRec;
         }
         return $events;
@@ -647,26 +716,30 @@ class GrampsdbHelper
         ];
     }
 
+    public static function getCitationByHandle($chan)
+    {
+        $cRec = self::getDbHandle()->table('citation')->where(['handle' => $chan])->first();
+        // decode blob_data if any
+        if(property_exists($cRec, 'blob_data')) {
+            // try different methods to unpickle
+            $blob_data = self::unpickle($cRec->blob_data);
+            if($blob_data != false) {
+                $cRec->type_data = self::mapCitationData($blob_data);
+                unset($cRec->blob_data);
+            }
+            //else throw new \Exception("unable to parse blob_data!");
+        }
+        return $cRec;
+    }
+
     public static function getCitationByPersonHandle($ghan)
     {
         $citations = [];
         $ctRefs = self::getRefByPersonHandle($ghan,'Citation');
 
         foreach($ctRefs as $c) {
-            $ch = $c->ref_handle;
-            $cRec = self::getDbHandle()->table('citation')->where(['handle' => $ch])->first();
-
+            $cRec = self::getCitationByHandle($c->ref_handle);
             $cid = $cRec->gramps_id;
-            // decode blob_data if any
-            if(property_exists($cRec, 'blob_data')) {
-                // try different methods to unpickle
-                $blob_data = self::unpickle($cRec->blob_data);
-                if($blob_data != false) {
-                    $cRec->type_data = self::mapCitationData($blob_data);
-                    unset($cRec->blob_data);
-                }
-                else throw new \Exception("unable to parse blob_data!");
-            }
             $citations[$cid] = $cRec;
         }
         return $citations;
@@ -720,32 +793,53 @@ class GrampsdbHelper
         ];
     }
 
+    /**
+     * unpickle blob_data and get person objects if specified
+     * note: only populates mother and father if they are previously empty
+     *
+     * @param object $fRec
+     * @param boolean $withPersons
+     */
+    private static function prepFamily(&$fRec,$withPersons=false)
+    {
+        // decode blob_data if any
+        if(property_exists($fRec, 'blob_data')) {
+            // try different methods to unpickle
+            $blob_data = self::unpickle($fRec->blob_data);
+            if($blob_data != false) {
+                $fRec->type_data = self::mapFamilyData($blob_data);
+                unset($fRec->blob_data);
+            }
+        }
+        if($withPersons == true) {
+            if(!empty($fRec->father_handle))
+                $fRec->father = self::getPersonByHandle($fRec->father_handle);
+            if(!empty($fRec->mother_handle))
+                $fRec->mother = self::getPersonByHandle($fRec->mother_handle);
+        }
+    }
+
+    public static function getFamilyByHandle($fhan,$withPersons=false)
+    {
+        $fRec = self::getDbHandle()->table('family')->where(['handle' => $fhan])->first();
+        self::prepFamily($fRec,$withPersons);
+        return $fRec;
+    }
+    public static function getFamilyById($gId,$withPersons=false)
+    {
+        $fRec = self::getDbHandle()->table('family')->where(['gramps_id' => $gId])->first();
+        self::prepFamily($fRec,$withPersons);
+        return $fRec;
+    }
+
     public static function getFamilyByPersonHandle($ghan,$withPersons=false)
     {
         $family = [];
         $fmRefs = self::getRefByPersonHandle($ghan,'Family');
 
         foreach($fmRefs as $f) {
-            $fh = $f->ref_handle;
-            $fRec = self::getDbHandle()->table('family')->where(['handle' => $fh])->first();
-
+            $fRec = self::getFamilyByHandle($f->ref_handle,$withPersons);
             $fid = $fRec->gramps_id;
-            // decode blob_data if any
-            if(property_exists($fRec, 'blob_data')) {
-                // try different methods to unpickle
-                $blob_data = self::unpickle($fRec->blob_data);
-                if($blob_data != false) {
-                    $fRec->type_data = self::mapFamilyData($blob_data);
-                    unset($fRec->blob_data);
-                }
-                else throw new \Exception("unable to parse blob_data!");
-            }
-            if($withPersons == true) {
-                if(!empty($fRec->father_handle))
-                    $fRec->father = self::getPersonByHandle($fRec->father_handle);
-                if(!empty($fRec->mother_handle))
-                    $fRec->mother = self::getPersonByHandle($fRec->mother_handle);
-            }
             $family[$fid] = $fRec;
         }
         return $family;
