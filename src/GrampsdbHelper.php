@@ -361,6 +361,7 @@ class GrampsdbHelper
             unset($mObj->blob_data);
         }
     }
+
     /**
      * @param string $gid
      * @return \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Query\Builder|object|null
@@ -398,10 +399,10 @@ class GrampsdbHelper
         else return false;
     }
 
-    public static function getSubClass($classType, $handle, $withExtra=false)
+    public static function getSubClass($classType, $handle, $withExtra = false)
     {
         $subClass = null;
-        switch($classType) { // todo finish all cases
+        switch ($classType) { // todo finish all cases
             case 'Citation':
                 $subClass = self::getCitationByHandle($handle);
                 break;
@@ -409,41 +410,38 @@ class GrampsdbHelper
                 $subClass = self::getEventByHandle($handle);
                 break;
             case 'Family':
-                $subClass = self::getFamilyByHandle($handle,$withExtra);
-                // todo finish filling in
-                break;
-            case 'Media':
-                // todo finish filling in
+                $subClass = self::getFamilyByHandle($handle, $withExtra);
                 break;
             case 'Media':
                 $subClass = self::getMediaByHandle($handle);
                 break;
             case 'Note':
-                // todo finish filling in
+                $subClass = self::getNoteByHandle($handle);
                 break;
             case 'Person':
                 $subClass = self::getPersonByHandle($handle);
                 break;
             case 'Place':
-                // todo finish filling in
+                $subClass = self::getPlaceByHandle($handle);
                 break;
             case 'Repository':
+                $subClass = self::getRepositoryByHandle($handle);
                 break;
-            // todo finish filling in
             case 'Source':
-                // todo finish filling in
+                $subClass = self::getSourceByHandle($handle);
                 break;
             default:
                 break;
         }
         return $subClass;
     }
-    public static function getReferences($withSubs=false)
+
+    public static function getReferences($withSubs = false)
     {
         $gRefs = self::getDbHandle()->table('reference')->get();
-        if($withSubs) {
-            foreach($gRefs as $k => $ref) {
-                switch($ref->obj_class) {
+        if ($withSubs) {
+            foreach ($gRefs as $k => $ref) {
+                switch ($ref->obj_class) {
                     case 'Person':
                     default:
                         break;
@@ -451,6 +449,7 @@ class GrampsdbHelper
             }
         }
     }
+
     /**
      * @param $pid
      * @param null|string $rc
@@ -458,24 +457,24 @@ class GrampsdbHelper
      * @see getPersonHandleById()
      * @see getRefByPersonHandle()
      */
-    public static function getRefByPersonid($pid, $rc=null)
+    public static function getRefByPersonid($pid, $rc = null)
     {
-        if($phan = self::getPersonHandleById($pid))
+        if ($phan = self::getPersonHandleById($pid))
             return self::getRefByPersonHandle($phan, $rc);
     }
 
     /**
      * get refs by handle optionally specifying the obj_class and/or ref_class
-     * @param string $ghan  object handle
-     * @param null|string $oc  object class (e.g. 'Person')
-     * @param null|string $rc  ref class (e.g. 'Media')
+     * @param string $ghan object handle
+     * @param null|string $oc object class (e.g. 'Person')
+     * @param null|string $rc ref class (e.g. 'Media')
      * @return \Illuminate\Support\Collection
      */
-    public static function getRefByHandle($ghan, $oc=null, $rc=null)
+    public static function getRefByHandle($ghan, $oc = null, $rc = null)
     {
-        $whereData = [ 'obj_handle' => $ghan ];
-        if(!empty($oc)) $whereData['obj_class'] = $oc;
-        if(!empty($rc)) $whereData['ref_class'] = $rc;
+        $whereData = ['obj_handle' => $ghan];
+        if (!empty($oc)) $whereData['obj_class'] = $oc;
+        if (!empty($rc)) $whereData['ref_class'] = $rc;
 
         $reference = self::getDbHandle()->table('reference')->where($whereData)->get();
 
@@ -485,10 +484,10 @@ class GrampsdbHelper
     /**
      * get all person refs by handle, optionally filtering by ref_class
      * @param $ghan  object handle
-     * @param null|string $rc  ref class (e.g. 'Media')
+     * @param null|string $rc ref class (e.g. 'Media')
      * @return \Illuminate\Support\Collection
      */
-    public static function getRefByPersonHandle($ghan, $rc=null)
+    public static function getRefByPersonHandle($ghan, $rc = null)
     {
         return self::getRefByHandle($ghan, 'Person', $rc);
     }
@@ -556,7 +555,7 @@ class GrampsdbHelper
      */
     private static function mapEventData($data)
     {
-        if(count($data) != 13) return false;
+        if (count($data) != 13) return false;
         $eventTypeId = $data[2][0];
         $eventTypeName = (empty($data[2][1]) ? (array_key_exists($eventTypeId, self::$eventTypes) ? self::$eventTypes[$eventTypeId] : '') : $data[2][1]);
         return [
@@ -579,35 +578,33 @@ class GrampsdbHelper
         ];
     }
 
+    private static function prepEvent(&$eObj)
+    {
+        // decode blob_data if any
+        if (property_exists($eObj, 'blob_data')) {
+            // try different methods to unpickle
+            $blob_data = self::unpickle($eObj->blob_data);
+            if ($blob_data != false) {
+                $eObj->type_data = self::mapEventData($blob_data);
+                unset($eObj->blob_data);
+            }
+        }
+    }
+
     public static function getEventByHandle($ehan)
     {
         $eRec = self::getDbHandle()->table('event')->where(['handle' => $ehan])->first();
-        // decode blob_data if any
-        if(property_exists($eRec, 'blob_data')) {
-            // try different methods to unpickle
-            $blob_data = self::unpickle($eRec->blob_data);
-            if ($blob_data != false) {
-                $eRec->type_data = self::mapEventData($blob_data);
-                unset($eRec->blob_data);
-            }
-        }
+        self::prepEvent($eRec);
         return $eRec;
     }
 
     public static function getEventById($gId)
     {
         $eRec = self::getDbHandle()->table('event')->where(['gramps_id' => $gId])->first();
-        // decode blob_data if any
-        if(property_exists($eRec, 'blob_data')) {
-            // try different methods to unpickle
-            $blob_data = self::unpickle($eRec->blob_data);
-            if ($blob_data != false) {
-                $eRec->type_data = self::mapEventData($blob_data);
-                unset($eRec->blob_data);
-            }
-        }
+        self::prepEvent($eRec);
         return $eRec;
     }
+
     /**
      * get a list of events associated with a given person handle
      *
@@ -620,7 +617,7 @@ class GrampsdbHelper
         $events = [];
         $epRefs = self::getRefByPersonHandle($gphan, 'Event');
 
-        foreach($epRefs as $r) {
+        foreach ($epRefs as $r) {
             $eRec = self::getEventByHandle($r->ref_handle);
             $eid = $eRec->gramps_id;
             $events[$eid] = $eRec;
@@ -636,7 +633,7 @@ class GrampsdbHelper
      */
     private static function mapMediaData($data)
     {
-        if(count($data) != 13) return false;
+        if (count($data) != 13) return false;
         return [
             'handle' => $data[0],
             'gramps_id' => $data[1],
@@ -662,18 +659,18 @@ class GrampsdbHelper
      * @return array
      * @see getRefByPersonHandle()
      */
-    public static function getMediaByPersonHandle($ghan, $skipPath=true)
+    public static function getMediaByPersonHandle($ghan, $skipPath = true)
     {
         $media = [];
-        $mpRefs = self::getRefByPersonHandle($ghan,'Media');
+        $mpRefs = self::getRefByPersonHandle($ghan, 'Media');
         //$mPath = ((function_exists('env')) ? env('GEDCOM_MEDIA', 'media') : 'media'); // used for local images
-        foreach($mpRefs as $r) {
+        foreach ($mpRefs as $r) {
             $rh = $r->ref_handle;
             $mRec = self::getDbHandle()->table('media')->where(['handle' => $rh])->first();
 
             $mid = $mRec->gramps_id;
             // decode blob_data if any
-            if(property_exists($mRec, 'blob_data')) {
+            if (property_exists($mRec, 'blob_data')) {
                 $blob_data = self::unpyckle($mRec->blob_data);
                 $mRec->type_data = self::mapMediaData($blob_data);
                 unset($mRec->blob_data);
@@ -684,8 +681,8 @@ class GrampsdbHelper
             // insert relative url from site root for this server
             //$mRec->url = preg_replace('|.*'.DIRECTORY_SEPARATOR.'([^'.DIRECTORY_SEPARATOR.']+)$|', '/'.$mPath."/$1", $mRec->path);
             $media_path = (function_exists('env') ? env('GEDCOM_MEDIA_PATH', 'gedcomx/media') : 'gedcomx/media');
-            $mRec->url = self::getUrlFromAwsBucket(basename($mRec->path),$media_path);
-            if($skipPath) unset($mRec->path); // remove path if not relevant to local resources
+            $mRec->url = self::getUrlFromAwsBucket(basename($mRec->path), $media_path);
+            if ($skipPath) unset($mRec->path); // remove path if not relevant to local resources
             $media[$mid] = $mRec;
         }
         return $media;
@@ -699,7 +696,7 @@ class GrampsdbHelper
      */
     private static function mapCitationData($data)
     {
-        if(count($data) != 12) return false;
+        if (count($data) != 12) return false;
         return [
             'handle' => $data[0],
             'gramps_id' => $data[1],
@@ -720,10 +717,10 @@ class GrampsdbHelper
     {
         $cRec = self::getDbHandle()->table('citation')->where(['handle' => $chan])->first();
         // decode blob_data if any
-        if(property_exists($cRec, 'blob_data')) {
+        if (property_exists($cRec, 'blob_data')) {
             // try different methods to unpickle
             $blob_data = self::unpickle($cRec->blob_data);
-            if($blob_data != false) {
+            if ($blob_data != false) {
                 $cRec->type_data = self::mapCitationData($blob_data);
                 unset($cRec->blob_data);
             }
@@ -735,9 +732,9 @@ class GrampsdbHelper
     public static function getCitationByPersonHandle($ghan)
     {
         $citations = [];
-        $ctRefs = self::getRefByPersonHandle($ghan,'Citation');
+        $ctRefs = self::getRefByPersonHandle($ghan, 'Citation');
 
-        foreach($ctRefs as $c) {
+        foreach ($ctRefs as $c) {
             $cRec = self::getCitationByHandle($c->ref_handle);
             $cid = $cRec->gramps_id;
             $citations[$cid] = $cRec;
@@ -768,7 +765,7 @@ class GrampsdbHelper
      */
     private static function mapFamilyData($data)
     {
-        if(count($data) != 15) return false;
+        if (count($data) != 15) return false;
         $familyTypeId = $data[5][0];
         $familyTypeName = (empty($data[5][1]) ? (array_key_exists($familyTypeId, self::$familyTypes) ? self::$familyTypes[$familyTypeId] : '') : $data[5][1]);
         return [
@@ -800,45 +797,46 @@ class GrampsdbHelper
      * @param object $fRec
      * @param boolean $withPersons
      */
-    private static function prepFamily(&$fRec,$withPersons=false)
+    private static function prepFamily(&$fRec, $withPersons = false)
     {
         // decode blob_data if any
-        if(property_exists($fRec, 'blob_data')) {
+        if (property_exists($fRec, 'blob_data')) {
             // try different methods to unpickle
             $blob_data = self::unpickle($fRec->blob_data);
-            if($blob_data != false) {
+            if ($blob_data != false) {
                 $fRec->type_data = self::mapFamilyData($blob_data);
                 unset($fRec->blob_data);
             }
         }
-        if($withPersons == true) {
-            if(!empty($fRec->father_handle))
+        if ($withPersons == true) {
+            if (!empty($fRec->father_handle))
                 $fRec->father = self::getPersonByHandle($fRec->father_handle);
-            if(!empty($fRec->mother_handle))
+            if (!empty($fRec->mother_handle))
                 $fRec->mother = self::getPersonByHandle($fRec->mother_handle);
         }
     }
 
-    public static function getFamilyByHandle($fhan,$withPersons=false)
+    public static function getFamilyByHandle($fhan, $withPersons = false)
     {
         $fRec = self::getDbHandle()->table('family')->where(['handle' => $fhan])->first();
-        self::prepFamily($fRec,$withPersons);
+        self::prepFamily($fRec, $withPersons);
         return $fRec;
     }
-    public static function getFamilyById($gId,$withPersons=false)
+
+    public static function getFamilyById($gId, $withPersons = false)
     {
         $fRec = self::getDbHandle()->table('family')->where(['gramps_id' => $gId])->first();
-        self::prepFamily($fRec,$withPersons);
+        self::prepFamily($fRec, $withPersons);
         return $fRec;
     }
 
-    public static function getFamilyByPersonHandle($ghan,$withPersons=false)
+    public static function getFamilyByPersonHandle($ghan, $withPersons = false)
     {
         $family = [];
-        $fmRefs = self::getRefByPersonHandle($ghan,'Family');
+        $fmRefs = self::getRefByPersonHandle($ghan, 'Family');
 
-        foreach($fmRefs as $f) {
-            $fRec = self::getFamilyByHandle($f->ref_handle,$withPersons);
+        foreach ($fmRefs as $f) {
+            $fRec = self::getFamilyByHandle($f->ref_handle, $withPersons);
             $fid = $fRec->gramps_id;
             $family[$fid] = $fRec;
         }
@@ -854,7 +852,7 @@ class GrampsdbHelper
      */
     public static function isAssoc($arr)
     {
-        if(!is_array($arr)) return false;
+        if (!is_array($arr)) return false;
         if (array() === $arr) return false;
         return array_keys($arr) !== range(0, count($arr) - 1);
     }
@@ -867,7 +865,7 @@ class GrampsdbHelper
      */
     public static function isJson($str)
     {
-        if(is_string($str) && !empty($str)) {
+        if (is_string($str) && !empty($str)) {
             json_decode($str);
             return (json_last_error() == JSON_ERROR_NONE);
         }
@@ -881,12 +879,12 @@ class GrampsdbHelper
      * @param array $incSpec
      * @return string
      */
-    public static function urlEncode($string,$entities=null)
+    public static function urlEncode($string, $entities = null)
     {
-        if(is_null($entities))
+        if (is_null($entities))
             $entities = self::$url_entities;
 
-        if(!self::isAssoc($entities))
+        if (!self::isAssoc($entities))
             throw new \Exception("invalid replacement list");
 
         return str_replace(array_keys($entities), array_values($entities), $string);
@@ -902,24 +900,364 @@ class GrampsdbHelper
      * @return string
      * @throws \Exception
      */
-    public static function getUrlFromAwsBucket($filename,$path=null,$bucket=null,$region=null)
+    public static function getUrlFromAwsBucket($filename, $path = null, $bucket = null, $region = null)
     {
-        if(empty($region) && function_exists('env'))
-            $region=env('AWS_REGION', 'us-east-1');
-        if(empty($bucket) && function_exists('env'))
+        if (empty($region) && function_exists('env'))
+            $region = env('AWS_REGION', 'us-east-1');
+        if (empty($bucket) && function_exists('env'))
             $bucket = env('AWS_BUCKET', 'grampsmedia');
         // replace any backslashes and get rid of any leading or trailing slashes or whitespace on path
-        if(!empty($path)) {
+        if (!empty($path)) {
             // swap backslashes and remove multiple separators
-            $path = preg_replace( "|[\\\\/]+|", "/", $path );
+            $path = preg_replace("|[\\\\/]+|", "/", $path);
             // remove any leading path separator
-            $path = preg_replace( '|[/\s]*$|', '', $path );
+            $path = preg_replace('|[/\s]*$|', '', $path);
             // remove any trailing path separator
-            $path = preg_replace( '|^[/\s]*|', '', $path );
+            $path = preg_replace('|^[/\s]*|', '', $path);
         }
         // if the (stripped) path is not empty, add a trailing slash to the path
-        $fullpath = self::urlEncode((empty($path) ? '' : $path."/") . $filename );
+        $fullpath = self::urlEncode((empty($path) ? '' : $path . "/") . $filename);
 
-        return sprintf('https://%s.s3.%s.amazonaws.com/%s', $bucket, $region, $fullpath );
+        return sprintf('https://%s.s3.%s.amazonaws.com/%s', $bucket, $region, $fullpath);
     }
+
+    private static $repositoryType = [
+        '-1' => "UNKNOWN",
+        '0' => "CUSTOM",
+        '1' => "LIBRARY",
+        '2' => "CEMETERY",
+        '3' => "CHURCH",
+        '4' => "ARCHIVE",
+        '5' => "ALBUM",
+        '6' => "WEBSITE",
+        '7' => "BOOKSTORE",
+        '8' => "COLLECTION",
+        '9' => "SAFE"
+    ];
+
+    /**
+     * map keys to note type blob_data
+     *
+     * @param array $data
+     * @return array|false
+     */
+    private static function mapRepositoryData($data)
+    {
+        if (count($data) != 10) return false;
+        $repositoryTypeId = $data[2][0];
+        $repositoryTypeName = (empty($data[2][1]) ? (array_key_exists($repositoryTypeId, self::$repositoryTypes) ? self::$repositoryTypes[$repositoryTypeId] : '') : $data[2][1]);
+        return [
+            'handle' => $data[0],
+            'gramps_id' => $data[1],
+            'type' => [
+                'type_id' => $repositoryTypeId,
+                'type_name' => $repositoryTypeName
+            ],
+            'name' => $data[3],
+            'note_list' => $data[4],
+            'address_list' => $data[5],
+            'urls' => $data[6],
+            'change' => $data[7],
+            'tag_list' => $data[8],
+            'private' => $data[9]
+        ];
+    }
+    private static function prepRepository(&$rObj)
+    {
+        // decode blob_data if any
+        if (property_exists($rObj, 'blob_data')) {
+            // try different methods to unpickle
+            $blob_data = self::unpickle($rObj->blob_data);
+            if ($blob_data != false) {
+                $rObj->type_data = self::mapRepositoryData($blob_data);
+                unset($rObj->blob_data);
+            }
+        }
+    }
+    public static function getRepositoryByHandle($rhan)
+    {
+        $rRec = self::getDbHandle()->table('repository')->where(['handle' => $rhan])->first();
+        self::prepRepository($rRec);
+        return $rRec;
+    }
+
+    public static function getRepositoryById($gId)
+    {
+        $rRec = self::getDbHandle()->table('repository')->where(['gramps_id' => $gId])->first();
+        self::prepRepository($rRec);
+        return $rRec;
+    }
+
+    /**
+     * @var string[] $placeTypes
+     * @see https://www.gramps-project.org/docs/gen/gen_lib.html?highlight=placetype#module-gramps.gen.lib.placetype
+     */
+    private static $placeTypes = [
+        '-1' => "UNKNOWN",
+        '0' => "CUSTOM",
+        '1' => "COUNTRY",
+        '2' => "STATE",
+        '3' => "COUNTY",
+        '4' => "CITY",
+        '5' => "PARISH",
+        '6' => "LOCALITY",
+        '7' => "STREET",
+        '8' => "PROVINCE",
+        '9' => "REGION",
+        '10' => "DEPARTMENT",
+        '11' => "NEIGHBORHOOD",
+        '12' => "DISTRICT",
+        '13' => "BOROUGH",
+        '14' => "MUNICIPALITY",
+        '15' => "TOWN",
+        '16' => "VILLAGE",
+        '17' => "HAMLET",
+        '18' => "FARM",
+        '19' => "BUILDING",
+        '20' => "NUMBER"
+    ];
+
+    /**
+     * map keys to place type blob_data
+     *
+     * @param array $data
+     * @return array|false
+     */
+    private static function mapPlaceData($data)
+    {
+        if (count($data) != 18) return false;
+        $placeTypeId = $data[8][0];
+        $placeTypeName = (empty($data[8][1]) ? (array_key_exists($placeTypeId, self::$placeTypes) ? self::$placeTypes[$placeTypeId] : '') : $data[2][1]);
+        return [
+            'handle' => $data[0],
+            'gramps_id' => $data[1],
+            'title' => $data[2],
+            'long' => $data[3],
+            'lat' => $data[4],
+            'placeref_list' => $data[5],
+            'name' => $data[6],
+            'alt_names' => $data[7],
+            'type' => [
+                'type_id' => $placeTypeId,
+                'type_name' => $placeTypeName
+            ],
+            'code' => $data[9],
+            'alt_loc' => $data[10],
+            'urls' => $data[11],
+            'media_list' => $data[12],
+            'citation_list' => $data[13],
+            'note_list' => $data[14],
+            'change' => $data[15],
+            'tag_list' => $data[16],
+            'private' => $data[17]
+        ];
+    }
+
+    private static function prepPlace(&$pObj)
+    {
+        // decode blob_data if any
+        if (property_exists($pObj, 'blob_data')) {
+            // try different methods to unpickle
+            $blob_data = self::unpickle($pObj->blob_data);
+            if ($blob_data != false) {
+                $pObj->type_data = self::mapPlaceData($blob_data);
+                unset($pObj->blob_data);
+            }
+        }
+    }
+
+    public static function getPlaceByHandle($phan)
+    {
+        $pRec = self::getDbHandle()->table('place')->where(['handle' => $phan])->first();
+        self::prepNote($pRec);
+        return $pRec;
+    }
+
+    public static function getPlaceById($gId)
+    {
+        $pRec = self::getDbHandle()->table('place')->where(['gramps_id' => $gId])->first();
+        self::prepNote($pRec);
+        return $pRec;
+    }
+
+    /**
+     * @var string[] $noteTypes
+     * @see https://www.gramps-project.org/docs/gen/gen_lib.html?highlight=notetype#module-gramps.gen.lib.notetype
+     */
+    private static $noteTypes = [
+        '0' => "CUSTOM",
+        '1' => "GENERAL",
+        '2' => "RESEARCH",
+        '3' => "TRANSCRIPT",
+        '4' => "PERSON",
+        '5' => "ATTRIBUTE",
+        '6' => "ADDRESS",
+        '7' => "ASSOCIATION",
+        '8' => "LDS",
+        '9' => "FAMILY",
+        '10' => "EVENT",
+        '11' => "EVENTREF",
+        '12' => "SOURCE",
+        '13' => "SOURCEREF",
+        '14' => "PLACE",
+        '15' => "REPO",
+        '16' => "REPOREF",
+        '17' => "MEDIA",
+        '18' => "MEDIAREF",
+        '19' => "CHILDREF",
+        '20' => "PERSONNAME",
+        '21' => "SOURCE_TEXT",
+        '22' => "CITATION",
+        '23' => "REPORT_TEXT",
+        '24' => "HTML_CODE",
+        '25' => "TODO",
+        '26' => "LINK"
+    ];
+
+    /**
+     * map keys to note type blob_data
+     *
+     * @param array $data
+     * @return array|false
+     */
+    private static function mapNoteData($data)
+    {
+        if (count($data) != 8) return false;
+        $noteTypeId = $data[4][0];
+        $noteTypeName = (empty($data[4][1]) ? (array_key_exists($noteTypeId, self::$noteTypes) ? self::$noteTypes[$noteTypeId] : '') : $data[4][1]);
+        return [
+            'handle' => $data[0],
+            'gramps_id' => $data[1],
+            'text' => $data[2],
+            'format' => $data[3],
+            'type' => [
+                'type_id' => $noteTypeId,
+                'type_name' => $noteTypeName
+            ],
+            'change' => $data[5],
+            'tag_list' => $data[6],
+            'private' => $data[7]
+        ];
+    }
+
+    private static function prepNote(&$nObj)
+    {
+        // decode blob_data if any
+        if (property_exists($nObj, 'blob_data')) {
+            // try different methods to unpickle
+            $blob_data = self::unpickle($nObj->blob_data);
+            if ($blob_data != false) {
+                $nObj->type_data = self::mapNoteData($blob_data);
+                unset($nObj->blob_data);
+            }
+        }
+    }
+
+    public static function getNoteByHandle($nhan)
+    {
+        $nRec = self::getDbHandle()->table('note')->where(['handle' => $nhan])->first();
+        self::prepNote($nRec);
+        return $nRec;
+    }
+
+    public static function getNoteById($gId)
+    {
+        $nRec = self::getDbHandle()->table('note')->where(['gramps_id' => $gId])->first();
+        self::prepNote($nRec);
+        return $nRec;
+    }
+
+    private static $sourceTypes = [
+        '-1' => "UNKNOWN",
+        '0' => "CUSTOM",
+        '1' => "AUDIO",
+        '2' => "BOOK",
+        '3' => "CARD",
+        '4' => "ELECTRONIC",
+        '5' => "FICHE",
+        '6' => "FILM",
+        '7' => "MAGAZINE",
+        '8' => "MANUSCRIPT",
+        '9' => "MAP",
+        '10' => "NEWSPAPER",
+        '11' => "PHOTO",
+        '12' => "TOMBSTONE",
+        '13' => "VIDEO"
+    ];
+
+    private static function mapRepoRef($data) {
+        if (count($data) != 5) return false;
+        $sourceTypeId = $data[3][0];
+        $sourceTypeName = (empty($data[3][1]) ? (array_key_exists($sourceTypeId, self::$sourceTypes) ? self::$sourceTypes[$sourceTypeId] : '') : $data[3][1]);
+
+        return [
+            'note_list' => $data[0],
+            'ref' => $data[1],
+            'call_number' => $data[2],
+            'type' => [
+                'type_id' => $sourceTypeId,
+                'type_name' => $sourceTypeName
+            ],
+            'private' => $data[4],
+        ];
+    }
+    /**
+     * map keys to source type blob_data
+     *
+     * @param array $data
+     * @return array|false
+     */
+    private static function mapSourceData($data)
+    {
+        if (count($data) != 13) return false;
+        $repoRefList = [];
+        $refList = $data[10];
+        foreach($refList as $ref)
+            array_push($repoRefList, self::mapRepoRef($ref));
+
+        $sourceData = [
+            'handle' => $data[0],
+            'gramps_id' => $data[1],
+            'title' => $data[2],
+            'author' => $data[3],
+            'pubinfo' => $data[4],
+            'note_list' => $data[5],
+            'media_list' => $data[6],
+            'abbrev' => $data[7],
+            'change' => $data[8],
+            'attribute_list' => $data[9],
+            'reporef_list' => $repoRefList,
+            'tag_list' => $data[11],
+            'private' => $data[12]
+        ];
+        return $sourceData;
+    }
+
+    private static function prepSource(&$sObj)
+    {
+        // decode blob_data if any
+        if (property_exists($sObj, 'blob_data')) {
+            // try different methods to unpickle
+            $blob_data = self::unpickle($sObj->blob_data);
+            if ($blob_data != false) {
+                $sObj->type_data = self::mapSourceData($blob_data);
+                unset($sObj->blob_data);
+            }
+        }
+    }
+
+    public static function getSourceByHandle($shan)
+    {
+        $sRec = self::getDbHandle()->table('source')->where(['handle' => $shan])->first();
+        self::prepSource($sRec);
+        return $sRec;
+    }
+
+    public static function getSourceById($gId)
+    {
+        $sRec = self::getDbHandle()->table('source')->where(['gramps_id' => $gId])->first();
+        self::prepNote($sRec);
+        return $sRec;
+    }
+
 }
