@@ -286,16 +286,7 @@ class GrampsdbHelper
     public static function getCitationByHandle($chan)
     {
         $cRec = self::getDbHandle()->table('citation')->where(['handle' => $chan])->first();
-        // decode blob_data if any
-        if (property_exists($cRec, 'blob_data')) {
-            // try different methods to unpickle
-            $blob_data = self::unpickle($cRec->blob_data);
-            if ($blob_data != false) {
-                $cRec->type_data = self::mapCitationData($blob_data);
-                unset($cRec->blob_data);
-            }
-            //else throw new \Exception("unable to parse blob_data!");
-        }
+        self::prepCitation($cRec);
         return $cRec;
     }
 
@@ -407,15 +398,16 @@ class GrampsdbHelper
 
     // <editor-fold desc="media table record accessors">
     /**
+     * @param boolean $skipPath
      * @return array
      */
-    public static function getMedia()
+    public static function getMedia($skipPath=true)
     {
         $grampsMedia = [];
         $gMedia = self::getDbHandle()->table('media')->get();
         foreach ($gMedia as $mRec) {
             $gid = $mRec->gramps_id;
-            self::prepMedia($mRec);
+            self::prepMedia($mRec,$skipPath);
             $grampsMedia[$gid] = $mRec;
         }
         return $grampsMedia;
@@ -423,23 +415,25 @@ class GrampsdbHelper
 
     /**
      * @param string $gid
+     * @param boolean $skipPath
      * @return \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Query\Builder|object|null
      */
-    public static function getMediaById($gid)
+    public static function getMediaById($gid,$skipPath=true)
     {
         $media = self::getDbHandle()->table('media')->where('gramps_id', $gid)->first();
-        self::prepMedia($media);
+        self::prepMedia($media,$skipPath);
         return $media;
     }
 
     /**
      * @param string $ghan
+     * @param boolean $skipPath
      * @return \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Query\Builder|object|null
      */
-    public static function getMediaByHandle($ghan)
+    public static function getMediaByHandle($ghan,$skipPath=true)
     {
         $media = self::getDbHandle()->table('media')->where('handle', $ghan)->first();
-        self::prepMedia($media);
+        self::prepMedia($media,$skipPath);
         return $media;
     }
 
@@ -467,7 +461,7 @@ class GrampsdbHelper
      * @return array
      * @see getRefByPersonHandle()
      */
-    public static function getMediaByPersonHandle($ghan, $skipPath = true)
+    public static function getMediaByPersonHandle($ghan, $skipPath=true)
     {
         $media = [];
         $mpRefs = self::getRefByPersonHandle($ghan, 'Media');
@@ -477,20 +471,7 @@ class GrampsdbHelper
             $mRec = self::getDbHandle()->table('media')->where(['handle' => $rh])->first();
 
             $mid = $mRec->gramps_id;
-            // decode blob_data if any
-            if (property_exists($mRec, 'blob_data')) {
-                $blob_data = self::unpyckle($mRec->blob_data);
-                $mRec->type_data = self::mapMediaData($blob_data);
-                unset($mRec->blob_data);
-            }
-
-            // uncomment for just filename
-            //$mRec->filename = preg_replace('|.*'.DIRECTORY_SEPARATOR.'([^'.DIRECTORY_SEPARATOR.']+)$|', "$1", $mRec->path);
-            // insert relative url from site root for this server
-            //$mRec->url = preg_replace('|.*'.DIRECTORY_SEPARATOR.'([^'.DIRECTORY_SEPARATOR.']+)$|', '/'.$mPath."/$1", $mRec->path);
-            $media_path = (function_exists('env') ? env('GEDCOM_MEDIA_PATH', 'gedcomx/media') : 'gedcomx/media');
-            $mRec->url = self::getUrlFromAwsBucket(basename($mRec->path), $media_path);
-            if ($skipPath) unset($mRec->path); // remove path if not relevant to local resources
+            self::prepMedia($mRec, $skipPath);
             $media[$mid] = $mRec;
         }
         return $media;
@@ -766,6 +747,22 @@ class GrampsdbHelper
             'private' => $data[11]
         ];
     }
+
+    /**
+     * @param object $cObj
+     */
+    private static function prepCitation(&$cObj)
+    {
+        // decode blob_data if any
+        if (property_exists($cObj, 'blob_data')) {
+            // try different methods to unpickle
+            $blob_data = self::unpickle($cObj->blob_data);
+            if ($blob_data != false) {
+                $cObj->type_data = self::mapCitationData($blob_data);
+                unset($cObj->blob_data);
+            }
+        }
+    }
     // </editor-fold desc="citation blob handler">
 
     // <editor-fold desc="event blob handler">
@@ -977,7 +974,7 @@ class GrampsdbHelper
     /**
      * @param object $mObj
      */
-    private static function prepMedia(&$mObj)
+    private static function prepMedia(&$mObj, $skipPath=true)
     {
         // decode blob_data if any
         if (property_exists($mObj, 'blob_data')) {
@@ -985,6 +982,13 @@ class GrampsdbHelper
             $mObj->type_data = self::mapMediaData($blob_data);
             unset($mObj->blob_data);
         }
+        // uncomment for just filename
+        //$mRec->filename = preg_replace('|.*'.DIRECTORY_SEPARATOR.'([^'.DIRECTORY_SEPARATOR.']+)$|', "$1", $mRec->path);
+        // insert relative url from site root for this server
+        //$mRec->url = preg_replace('|.*'.DIRECTORY_SEPARATOR.'([^'.DIRECTORY_SEPARATOR.']+)$|', '/'.$mPath."/$1", $mRec->path);
+        $media_path = (function_exists('env') ? env('GEDCOM_MEDIA_PATH', 'gedcomx/media') : 'gedcomx/media');
+        $mRec->url = self::getUrlFromAwsBucket(basename($mRec->path), $media_path);
+        if ($skipPath) unset($mRec->path); // remove path if not relevant to local resources
     }
     // </editor-fold desc="media blob handler">
 
