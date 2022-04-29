@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\DB;
 
 class GrampsdbHelper
 {
+    // <editor-fold desc="utility functions">
+
     /**
      * @var string $dbConn
      */
@@ -196,89 +198,214 @@ class GrampsdbHelper
     }
 
     /**
-     * add keys to the array created from blob_data for a person type
+     * test an array to see if it appears to be an associative array
      *
-     * @param array $data
-     * @return array|false
+     * @param mixed $arr
+     * @return bool
+     * @static
      */
-    private static function mapPersonData($data)
+    public static function isAssoc($arr)
     {
-        if (count($data) != 21) return false;
-        $genders = ['Female', 'Male', 'Unknown'];
-        $genderId = $data[2];
-        return [
-            'handle' => $data[0],
-            'gramps_id' => $data[1],
-            'gender' => $genders[$genderId],
-            'primary_name' => $data[3],
-            'alternate_names' => $data[4],
-            'death_ref_index' => $data[5],
-            'birth_ref_index' => $data[6],
-            'event_ref_index' => $data[7],
-            'family_list' => $data[8],
-            'parent_family_list' => $data[9],
-            'media_list' => $data[10],
-            'address_list' => $data[11],
-            'attribute_list' => $data[12],
-            'urls' => $data[13],
-            'lds_ord_list' => $data[14],
-            'citation_list' => $data[15],
-            'note_list' => $data[16],
-            'change' => $data[17],
-            'tag_list' => $data[18],
-            'private' => $data[19],
-            'person_ref_list' => $data[20]
-        ];
+        if (!is_array($arr)) return false;
+        if (array() === $arr) return false;
+        return array_keys($arr) !== range(0, count($arr) - 1);
     }
 
     /**
-     * retrieve a full list of persons from the grampsdb
+     * try to detect if a string is a json string
      *
+     * @param $str
+     * @return bool
+     */
+    public static function isJson($str)
+    {
+        if (is_string($str) && !empty($str)) {
+            json_decode($str);
+            return (json_last_error() == JSON_ERROR_NONE);
+        }
+        return false;
+    }
+
+    /**
+     * custom url encode using specified associative array of replacements
+     *   will default to self::$url_entities if no replacement list is given
+     * @param string $string
+     * @param array $incSpec
+     * @return string
+     */
+    public static function urlEncode($string, $entities = null)
+    {
+        if (is_null($entities))
+            $entities = self::$url_entities;
+
+        if (!self::isAssoc($entities))
+            throw new \Exception("invalid replacement list");
+
+        return str_replace(array_keys($entities), array_values($entities), $string);
+    }
+
+    /**
+     * map a given media file record to point to a URL in an AWS S3 bucket
+     *
+     * @param string $filename
+     * @param null|string $path
+     * @param null|string $bucket
+     * @param null|string $region
+     * @return string
+     * @throws \Exception
+     */
+    public static function getUrlFromAwsBucket($filename, $path = null, $bucket = null, $region = null)
+    {
+        if (empty($region) && function_exists('env'))
+            $region = env('AWS_REGION', 'us-east-1');
+        if (empty($bucket) && function_exists('env'))
+            $bucket = env('AWS_BUCKET', 'grampsmedia');
+        // replace any backslashes and get rid of any leading or trailing slashes or whitespace on path
+        if (!empty($path)) {
+            // swap backslashes and remove multiple separators
+            $path = preg_replace("|[\\\\/]+|", "/", $path);
+            // remove any leading path separator
+            $path = preg_replace('|[/\s]*$|', '', $path);
+            // remove any trailing path separator
+            $path = preg_replace('|^[/\s]*|', '', $path);
+        }
+        // if the (stripped) path is not empty, add a trailing slash to the path
+        $fullpath = self::urlEncode((empty($path) ? '' : $path . "/") . $filename);
+
+        return sprintf('https://%s.s3.%s.amazonaws.com/%s', $bucket, $region, $fullpath);
+    }
+    // </editor-fold desc="utility functions">
+
+    // <editor-fold desc="grampsdb record accessors">
+
+    // <editor-fold desc="citation table record accessors">
+    /**
+     * @param string $chan
+     * @return \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Query\Builder|object|null
+     */
+    public static function getCitationByHandle($chan)
+    {
+        $cRec = self::getDbHandle()->table('citation')->where(['handle' => $chan])->first();
+        // decode blob_data if any
+        if (property_exists($cRec, 'blob_data')) {
+            // try different methods to unpickle
+            $blob_data = self::unpickle($cRec->blob_data);
+            if ($blob_data != false) {
+                $cRec->type_data = self::mapCitationData($blob_data);
+                unset($cRec->blob_data);
+            }
+            //else throw new \Exception("unable to parse blob_data!");
+        }
+        return $cRec;
+    }
+
+    /**
+     * @param $phan
      * @return array
      */
-    public static function getPersons()
+    public static function getCitationByPersonHandle($phan)
     {
-        $grampsPersons = [];
-        $gPersons = self::getDbHandle()->table('person')->get();
-        foreach ($gPersons as $pRec) {
-            $gid = $pRec->gramps_id;
-            // decode blob_data if any
-            if (property_exists($pRec, 'blob_data')) {
-                $blob_data = self::unpyckle($pRec->blob_data);
-                $pRec->type_data = self::mapPersonData($blob_data);
-                unset($pRec->blob_data);
-            }
+        $citations = [];
+        $ctRefs = self::getRefByPersonHandle($phan, 'Citation');
 
-            $grampsPersons[$gid] = $pRec;
+        foreach ($ctRefs as $c) {
+            $cRec = self::getCitationByHandle($c->ref_handle);
+            $cid = $cRec->gramps_id;
+            $citations[$cid] = $cRec;
         }
-        return $grampsPersons;
+        return $citations;
+    }
+    // </editor-fold desc="citation table record accessors">
+
+    // <editor-fold desc="event table record accessors">
+    /**
+     * @param string $ehan
+     * @return \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Query\Builder|object|null
+     */
+    public static function getEventByHandle($ehan)
+    {
+        $eRec = self::getDbHandle()->table('event')->where(['handle' => $ehan])->first();
+        self::prepEvent($eRec);
+        return $eRec;
     }
 
     /**
-     * get a specific person by their handle, optionally collecting their media as well
-     *
-     * @param string $ghan
-     * @param false $withMedia whether to get all associated media references as a sub-element of the array
+     * @param string $gId
      * @return \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Query\Builder|object|null
-     * @see getMediaByPersonHandle()
      */
-    public static function getPersonByHandle($ghan, $withMedia = false)
+    public static function getEventById($gId)
     {
-        $person = self::getDbHandle()->table('person')->where('handle', $ghan)->first();
-
-        // decode blob_data if any
-        if (property_exists($person, 'blob_data')) {
-            $blob_data = self::unpyckle($person->blob_data);
-            $person->type_data = self::mapPersonData($blob_data);
-            unset($person->blob_data);
-        }
-
-        if ($withMedia)
-            $person->media = self::getMediaByPersonHandle($person->handle);
-
-        return $person;
+        $eRec = self::getDbHandle()->table('event')->where(['gramps_id' => $gId])->first();
+        self::prepEvent($eRec);
+        return $eRec;
     }
 
+    /**
+     * get a list of events associated with a given person handle
+     *
+     * @param string $gphan
+     * @return array
+     * @throws \Exception
+     */
+    public static function getEventsByPersonHandle($gphan)
+    {
+        $events = [];
+        $epRefs = self::getRefByPersonHandle($gphan, 'Event');
+
+        foreach ($epRefs as $r) {
+            $eRec = self::getEventByHandle($r->ref_handle);
+            $eid = $eRec->gramps_id;
+            $events[$eid] = $eRec;
+        }
+        return $events;
+    }
+    // </editor-fold desc="event table record accessors">
+
+    // <editor-fold desc="family table record accessors">
+    /**
+     * @param string $fhan
+     * @param boolean $withPersons
+     * @return \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Query\Builder|object|null
+     */
+    public static function getFamilyByHandle($fhan, $withPersons=false)
+    {
+        $fRec = self::getDbHandle()->table('family')->where(['handle' => $fhan])->first();
+        self::prepFamily($fRec, $withPersons);
+        return $fRec;
+    }
+
+    /**
+     * @param string $gId
+     * @param boolean $withPersons
+     * @return \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Query\Builder|object|null
+     */
+    public static function getFamilyById($gId, $withPersons=false)
+    {
+        $fRec = self::getDbHandle()->table('family')->where(['gramps_id' => $gId])->first();
+        self::prepFamily($fRec, $withPersons);
+        return $fRec;
+    }
+
+    /**
+     * @param string $phan
+     * @param boolean $withPersons
+     * @return array
+     */
+    public static function getFamilyByPersonHandle($phan, $withPersons=false)
+    {
+        $family = [];
+        $fmRefs = self::getRefByPersonHandle($phan, 'Family');
+
+        foreach ($fmRefs as $f) {
+            $fRec = self::getFamilyByHandle($f->ref_handle, $withPersons);
+            $fid = $fRec->gramps_id;
+            $family[$fid] = $fRec;
+        }
+        return $family;
+    }
+    // </editor-fold desc="family table record accessors">
+
+    // <editor-fold desc="media table record accessors">
     /**
      * @return array
      */
@@ -288,15 +415,120 @@ class GrampsdbHelper
         $gMedia = self::getDbHandle()->table('media')->get();
         foreach ($gMedia as $mRec) {
             $gid = $mRec->gramps_id;
+            self::prepMedia($mRec);
+            $grampsMedia[$gid] = $mRec;
+        }
+        return $grampsMedia;
+    }
+
+    /**
+     * @param string $gid
+     * @return \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Query\Builder|object|null
+     */
+    public static function getMediaById($gid)
+    {
+        $media = self::getDbHandle()->table('media')->where('gramps_id', $gid)->first();
+        self::prepMedia($media);
+        return $media;
+    }
+
+    /**
+     * @param string $ghan
+     * @return \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Query\Builder|object|null
+     */
+    public static function getMediaByHandle($ghan)
+    {
+        $media = self::getDbHandle()->table('media')->where('handle', $ghan)->first();
+        self::prepMedia($media);
+        return $media;
+    }
+
+    // todo utilize 'prep' function for blob data
+    /**
+     * retrieve all the media entries for a person by reference using a gramps_id
+     *
+     * @param string $gid
+     * @return array|false
+     * @see getPersonHandleById()
+     * @see getMediaByPersonHandle()
+     */
+    public static function getMediaByPersonId($gid)
+    {
+        if ($pid = self::getPersonHandleById($gid))
+            return self::getMediaByPersonHandle($pid);
+        else return false;
+    }
+
+    /**
+     * get all media associated with a given person by handle
+     *
+     * @param string $ghan
+     * @param bool $skipPath
+     * @return array
+     * @see getRefByPersonHandle()
+     */
+    public static function getMediaByPersonHandle($ghan, $skipPath = true)
+    {
+        $media = [];
+        $mpRefs = self::getRefByPersonHandle($ghan, 'Media');
+        //$mPath = ((function_exists('env')) ? env('GEDCOM_MEDIA', 'media') : 'media'); // used for local images
+        foreach ($mpRefs as $r) {
+            $rh = $r->ref_handle;
+            $mRec = self::getDbHandle()->table('media')->where(['handle' => $rh])->first();
+
+            $mid = $mRec->gramps_id;
             // decode blob_data if any
             if (property_exists($mRec, 'blob_data')) {
                 $blob_data = self::unpyckle($mRec->blob_data);
                 $mRec->type_data = self::mapMediaData($blob_data);
                 unset($mRec->blob_data);
             }
-            $grampsMedia[$gid] = $mRec;
+
+            // uncomment for just filename
+            //$mRec->filename = preg_replace('|.*'.DIRECTORY_SEPARATOR.'([^'.DIRECTORY_SEPARATOR.']+)$|', "$1", $mRec->path);
+            // insert relative url from site root for this server
+            //$mRec->url = preg_replace('|.*'.DIRECTORY_SEPARATOR.'([^'.DIRECTORY_SEPARATOR.']+)$|', '/'.$mPath."/$1", $mRec->path);
+            $media_path = (function_exists('env') ? env('GEDCOM_MEDIA_PATH', 'gedcomx/media') : 'gedcomx/media');
+            $mRec->url = self::getUrlFromAwsBucket(basename($mRec->path), $media_path);
+            if ($skipPath) unset($mRec->path); // remove path if not relevant to local resources
+            $media[$mid] = $mRec;
         }
-        return $grampsMedia;
+        return $media;
+    }
+    // </editor-fold desc="media table record accessors">
+
+    // <editor-fold desc="note table record accessors">
+    public static function getNoteByHandle($nhan)
+    {
+        $nRec = self::getDbHandle()->table('note')->where(['handle' => $nhan])->first();
+        self::prepNote($nRec);
+        return $nRec;
+    }
+
+    public static function getNoteById($gId)
+    {
+        $nRec = self::getDbHandle()->table('note')->where(['gramps_id' => $gId])->first();
+        self::prepNote($nRec);
+        return $nRec;
+    }
+    // </editor-fold desc="note table record accessors">
+
+    // <editor-fold desc="person table record accessors">
+    /**
+     *  retrieve a full list of persons from the grampsdb
+     * @param boolean $withExtra
+     * @return array
+     */
+    public static function getPersons($withMedia=false)
+    {
+        $grampsPersons = [];
+        $gPersons = self::getDbHandle()->table('person')->get();
+        foreach ($gPersons as $pRec) {
+            $gid = $pRec->gramps_id;
+            self::prepPerson($pRec, $withMedia);
+            $grampsPersons[$gid] = $pRec;
+        }
+        return $grampsPersons;
     }
 
     /**
@@ -307,19 +539,27 @@ class GrampsdbHelper
      * @return \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Query\Builder|object|null
      * @see getMediaByPersonHandle()
      */
-    public static function getPersonById($gid, $withMedia = false)
+    public static function getPersonById($gid, $withMedia=false)
     {
-        $person = self::getDbHandle()->table('person')->where('gramps_id', $gid)->first();
-        // decode blob_data if any
-        if (property_exists($person, 'blob_data')) {
-            $blob_data = self::unpyckle($person->blob_data);
-            $person->type_data = self::mapPersonData($blob_data);
-            unset($person->blob_data);
-        }
+        $pObj = self::getDbHandle()->table('person')->where('gramps_id', $gid)->first();
+        self::prepPerson($pObj, $withMedia);
+        return $pObj;
+    }
 
-        if ($withMedia)
-            $person->media = self::getMediaByPersonHandle($person->handle);
-        return $person;
+    /**
+     * get a specific person by their handle, optionally collecting their media as well
+     *
+     * @param string $ghan
+     * @param false $withMedia whether to get all associated media references as a sub-element of the array
+     * @return \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Query\Builder|object|null
+     * @see getMediaByPersonHandle()
+     */
+    public static function getPersonByHandle($ghan, $withMedia=false)
+    {
+        $pObj = self::getDbHandle()->table('person')->where('handle', $ghan)->first();
+        self::prepPerson($pObj, $withMedia);
+
+        return $pObj;
     }
 
     /**
@@ -351,55 +591,75 @@ class GrampsdbHelper
             return $gPerson->handle;
         else return false;
     }
+    // </editor-fold desc="person table record accessors">
 
-    private static function prepMedia(&$mObj)
+    // <editor-fold desc="place table record accessors">
+    public static function getPlaceByHandle($phan)
     {
-        // decode blob_data if any
-        if (property_exists($mObj, 'blob_data')) {
-            $blob_data = self::unpyckle($mObj->blob_data);
-            $mObj->type_data = self::mapMediaData($blob_data);
-            unset($mObj->blob_data);
+        $pRec = self::getDbHandle()->table('place')->where(['handle' => $phan])->first();
+        self::prepNote($pRec);
+        return $pRec;
+    }
+
+    public static function getPlaceById($gId)
+    {
+        $pRec = self::getDbHandle()->table('place')->where(['gramps_id' => $gId])->first();
+        self::prepNote($pRec);
+        return $pRec;
+    }
+    // </editor-fold desc="place table record accessors">
+
+    // <editor-fold desc="repository table record accessors">
+    public static function getRepositoryByHandle($rhan)
+    {
+        $rRec = self::getDbHandle()->table('repository')->where(['handle' => $rhan])->first();
+        self::prepRepository($rRec);
+        return $rRec;
+    }
+
+    public static function getRepositoryById($gId)
+    {
+        $rRec = self::getDbHandle()->table('repository')->where(['gramps_id' => $gId])->first();
+        self::prepRepository($rRec);
+        return $rRec;
+    }
+    // </editor-fold desc="repository table record accessors">
+
+    // <editor-fold desc="reference table record accessors">
+    // todo pick up where we left off and finish this function
+    public static function getReferences($withSubs=false)
+    {
+        $gRefs = self::getDbHandle()->table('reference')->get();
+        if ($withSubs) {
+            foreach ($gRefs as $k => $ref) {
+                switch ($ref->obj_class) {
+                    case 'Person':
+                    default:
+                        break;
+                }
+            }
         }
     }
 
     /**
-     * @param string $gid
-     * @return \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Query\Builder|object|null
+     * get refs by handle optionally specifying the obj_class and/or ref_class
+     * @param string $ghan object handle
+     * @param null|string $oc object class (e.g. 'Person')
+     * @param null|string $rc ref class (e.g. 'Media')
+     * @return \Illuminate\Support\Collection
      */
-    public static function getMediaById($gid)
+    public static function getRefByHandle($ghan, $oc = null, $rc = null)
     {
-        $media = self::getDbHandle()->table('media')->where('gramps_id', $gid)->first();
-        self::prepMedia($media);
-        return $media;
+        $whereData = ['obj_handle' => $ghan];
+        if (!empty($oc)) $whereData['obj_class'] = $oc;
+        if (!empty($rc)) $whereData['ref_class'] = $rc;
+
+        $reference = self::getDbHandle()->table('reference')->where($whereData)->get();
+
+        return $reference;
     }
 
-    /**
-     * @param string $ghan
-     * @return \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Query\Builder|object|null
-     */
-    public static function getMediaByHandle($ghan)
-    {
-        $media = self::getDbHandle()->table('media')->where('handle', $ghan)->first();
-        self::prepMedia($media);
-        return $media;
-    }
-
-    /**
-     * retrieve all the media entries for a person by reference using a gramps_id
-     *
-     * @param string $gid
-     * @return array|false
-     * @see getPersonHandleById()
-     * @see getMediaByPersonHandle()
-     */
-    public static function getMediaByPersonId($gid)
-    {
-        if ($pid = self::getPersonHandleById($gid))
-            return self::getMediaByPersonHandle($pid);
-        else return false;
-    }
-
-    public static function getSubClass($classType, $handle, $withExtra = false)
+    public static function getSubClass($classType, $handle, $withExtra=false)
     {
         $subClass = null;
         switch ($classType) { // todo finish all cases
@@ -436,20 +696,6 @@ class GrampsdbHelper
         return $subClass;
     }
 
-    public static function getReferences($withSubs = false)
-    {
-        $gRefs = self::getDbHandle()->table('reference')->get();
-        if ($withSubs) {
-            foreach ($gRefs as $k => $ref) {
-                switch ($ref->obj_class) {
-                    case 'Person':
-                    default:
-                        break;
-                }
-            }
-        }
-    }
-
     /**
      * @param $pid
      * @param null|string $rc
@@ -464,24 +710,6 @@ class GrampsdbHelper
     }
 
     /**
-     * get refs by handle optionally specifying the obj_class and/or ref_class
-     * @param string $ghan object handle
-     * @param null|string $oc object class (e.g. 'Person')
-     * @param null|string $rc ref class (e.g. 'Media')
-     * @return \Illuminate\Support\Collection
-     */
-    public static function getRefByHandle($ghan, $oc = null, $rc = null)
-    {
-        $whereData = ['obj_handle' => $ghan];
-        if (!empty($oc)) $whereData['obj_class'] = $oc;
-        if (!empty($rc)) $whereData['ref_class'] = $rc;
-
-        $reference = self::getDbHandle()->table('reference')->where($whereData)->get();
-
-        return $reference;
-    }
-
-    /**
      * get all person refs by handle, optionally filtering by ref_class
      * @param $ghan  object handle
      * @param null|string $rc ref class (e.g. 'Media')
@@ -491,7 +719,56 @@ class GrampsdbHelper
     {
         return self::getRefByHandle($ghan, 'Person', $rc);
     }
+    // </editor-fold desc="reference table record accessors">
 
+    // <editor-fold desc="source table record accessors">
+    public static function getSourceByHandle($shan)
+    {
+        $sRec = self::getDbHandle()->table('source')->where(['handle' => $shan])->first();
+        self::prepSource($sRec);
+        return $sRec;
+    }
+
+    public static function getSourceById($gId)
+    {
+        $sRec = self::getDbHandle()->table('source')->where(['gramps_id' => $gId])->first();
+        self::prepNote($sRec);
+        return $sRec;
+    }
+    // </editor-fold desc="source table record accessors">
+
+    // </editor-fold desc="grampsdb record accessors">
+
+    // <editor-fold desc="blob_data handlers">
+
+    // <editor-fold desc="citation blob handler">
+    /**
+     * map keys into citation type blob_data
+     *
+     * @param array $data
+     * @return array|false
+     */
+    private static function mapCitationData($data)
+    {
+        if (count($data) != 12) return false;
+        return [
+            'handle' => $data[0],
+            'gramps_id' => $data[1],
+            'date' => $data[2], // todo convert to php date
+            'page' => $data[3],
+            'confidence' => $data[4],
+            'source_handle' => $data[5],
+            'note_list' => $data[6],
+            'media_list' => $data[7],
+            'srcattr_list' => $data[8],
+            'change' => $data[9],
+            'tag_list' => $data[10],
+            'private' => $data[11]
+        ];
+    }
+    // </editor-fold desc="citation blob handler">
+
+    // <editor-fold desc="event blob handler">
     /**
      * text names associated with event type integer values
      *
@@ -578,6 +855,9 @@ class GrampsdbHelper
         ];
     }
 
+    /**
+     * @param object $eObj
+     */
     private static function prepEvent(&$eObj)
     {
         // decode blob_data if any
@@ -590,159 +870,9 @@ class GrampsdbHelper
             }
         }
     }
+    // </editor-fold desc="event blob handler">
 
-    public static function getEventByHandle($ehan)
-    {
-        $eRec = self::getDbHandle()->table('event')->where(['handle' => $ehan])->first();
-        self::prepEvent($eRec);
-        return $eRec;
-    }
-
-    public static function getEventById($gId)
-    {
-        $eRec = self::getDbHandle()->table('event')->where(['gramps_id' => $gId])->first();
-        self::prepEvent($eRec);
-        return $eRec;
-    }
-
-    /**
-     * get a list of events associated with a given person handle
-     *
-     * @param string $gphan
-     * @return array
-     * @throws \Exception
-     */
-    public static function getEventsByPersonHandle($gphan)
-    {
-        $events = [];
-        $epRefs = self::getRefByPersonHandle($gphan, 'Event');
-
-        foreach ($epRefs as $r) {
-            $eRec = self::getEventByHandle($r->ref_handle);
-            $eid = $eRec->gramps_id;
-            $events[$eid] = $eRec;
-        }
-        return $events;
-    }
-
-    /**
-     * map keys into media type blob_data
-     *
-     * @param array $data
-     * @return array|false
-     */
-    private static function mapMediaData($data)
-    {
-        if (count($data) != 13) return false;
-        return [
-            'handle' => $data[0],
-            'gramps_id' => $data[1],
-            'path' => $data[2],
-            'mime' => $data[3],
-            'description' => $data[4],
-            'checksum' => $data[5],
-            'attribute_list' => $data[6],
-            'citation_list' => $data[7],
-            'note_list' => $data[8],
-            'change' => $data[9],
-            'date' => $data[10], // todo convert to php date
-            'tag_list' => $data[11],
-            'private' => $data[12]
-        ];
-    }
-
-    /**
-     * get all media associated with a given person by handle
-     *
-     * @param string $ghan
-     * @param bool $skipPath
-     * @return array
-     * @see getRefByPersonHandle()
-     */
-    public static function getMediaByPersonHandle($ghan, $skipPath = true)
-    {
-        $media = [];
-        $mpRefs = self::getRefByPersonHandle($ghan, 'Media');
-        //$mPath = ((function_exists('env')) ? env('GEDCOM_MEDIA', 'media') : 'media'); // used for local images
-        foreach ($mpRefs as $r) {
-            $rh = $r->ref_handle;
-            $mRec = self::getDbHandle()->table('media')->where(['handle' => $rh])->first();
-
-            $mid = $mRec->gramps_id;
-            // decode blob_data if any
-            if (property_exists($mRec, 'blob_data')) {
-                $blob_data = self::unpyckle($mRec->blob_data);
-                $mRec->type_data = self::mapMediaData($blob_data);
-                unset($mRec->blob_data);
-            }
-
-            // uncomment for just filename
-            //$mRec->filename = preg_replace('|.*'.DIRECTORY_SEPARATOR.'([^'.DIRECTORY_SEPARATOR.']+)$|', "$1", $mRec->path);
-            // insert relative url from site root for this server
-            //$mRec->url = preg_replace('|.*'.DIRECTORY_SEPARATOR.'([^'.DIRECTORY_SEPARATOR.']+)$|', '/'.$mPath."/$1", $mRec->path);
-            $media_path = (function_exists('env') ? env('GEDCOM_MEDIA_PATH', 'gedcomx/media') : 'gedcomx/media');
-            $mRec->url = self::getUrlFromAwsBucket(basename($mRec->path), $media_path);
-            if ($skipPath) unset($mRec->path); // remove path if not relevant to local resources
-            $media[$mid] = $mRec;
-        }
-        return $media;
-    }
-
-    /**
-     * map keys into citation type blob_data
-     *
-     * @param array $data
-     * @return array|false
-     */
-    private static function mapCitationData($data)
-    {
-        if (count($data) != 12) return false;
-        return [
-            'handle' => $data[0],
-            'gramps_id' => $data[1],
-            'date' => $data[2], // todo convert to php date
-            'page' => $data[3],
-            'confidence' => $data[4],
-            'source_handle' => $data[5],
-            'note_list' => $data[6],
-            'media_list' => $data[7],
-            'srcattr_list' => $data[8],
-            'change' => $data[9],
-            'tag_list' => $data[10],
-            'private' => $data[11]
-        ];
-    }
-
-    public static function getCitationByHandle($chan)
-    {
-        $cRec = self::getDbHandle()->table('citation')->where(['handle' => $chan])->first();
-        // decode blob_data if any
-        if (property_exists($cRec, 'blob_data')) {
-            // try different methods to unpickle
-            $blob_data = self::unpickle($cRec->blob_data);
-            if ($blob_data != false) {
-                $cRec->type_data = self::mapCitationData($blob_data);
-                unset($cRec->blob_data);
-            }
-            //else throw new \Exception("unable to parse blob_data!");
-        }
-        return $cRec;
-    }
-
-    public static function getCitationByPersonHandle($ghan)
-    {
-        $citations = [];
-        $ctRefs = self::getRefByPersonHandle($ghan, 'Citation');
-
-        foreach ($ctRefs as $c) {
-            $cRec = self::getCitationByHandle($c->ref_handle);
-            $cid = $cRec->gramps_id;
-            $citations[$cid] = $cRec;
-        }
-        return $citations;
-    }
-
-
+    // <editor-fold desc="family blob handler">
     /**
      * text names associated with event type integer values
      *
@@ -797,7 +927,7 @@ class GrampsdbHelper
      * @param object $fRec
      * @param boolean $withPersons
      */
-    private static function prepFamily(&$fRec, $withPersons = false)
+    private static function prepFamily(&$fRec, $withPersons=false)
     {
         // decode blob_data if any
         if (property_exists($fRec, 'blob_data')) {
@@ -815,124 +945,82 @@ class GrampsdbHelper
                 $fRec->mother = self::getPersonByHandle($fRec->mother_handle);
         }
     }
+    // </editor-fold desc="family blob handler">
 
-    public static function getFamilyByHandle($fhan, $withPersons = false)
-    {
-        $fRec = self::getDbHandle()->table('family')->where(['handle' => $fhan])->first();
-        self::prepFamily($fRec, $withPersons);
-        return $fRec;
-    }
-
-    public static function getFamilyById($gId, $withPersons = false)
-    {
-        $fRec = self::getDbHandle()->table('family')->where(['gramps_id' => $gId])->first();
-        self::prepFamily($fRec, $withPersons);
-        return $fRec;
-    }
-
-    public static function getFamilyByPersonHandle($ghan, $withPersons = false)
-    {
-        $family = [];
-        $fmRefs = self::getRefByPersonHandle($ghan, 'Family');
-
-        foreach ($fmRefs as $f) {
-            $fRec = self::getFamilyByHandle($f->ref_handle, $withPersons);
-            $fid = $fRec->gramps_id;
-            $family[$fid] = $fRec;
-        }
-        return $family;
-    }
-
+    // <editor-fold desc="media blob handler">
     /**
-     * test an array to see if it appears to be an associative array
+     * map keys into media type blob_data
      *
-     * @param mixed $arr
-     * @return bool
-     * @static
+     * @param array $data
+     * @return array|false
      */
-    public static function isAssoc($arr)
+    private static function mapMediaData($data)
     {
-        if (!is_array($arr)) return false;
-        if (array() === $arr) return false;
-        return array_keys($arr) !== range(0, count($arr) - 1);
+        if (count($data) != 13) return false;
+        return [
+            'handle' => $data[0],
+            'gramps_id' => $data[1],
+            'path' => $data[2],
+            'mime' => $data[3],
+            'description' => $data[4],
+            'checksum' => $data[5],
+            'attribute_list' => $data[6],
+            'citation_list' => $data[7],
+            'note_list' => $data[8],
+            'change' => $data[9],
+            'date' => $data[10], // todo convert to php date
+            'tag_list' => $data[11],
+            'private' => $data[12]
+        ];
     }
 
     /**
-     * try to detect if a string is a json string
-     *
-     * @param $str
-     * @return bool
+     * @param object $mObj
      */
-    public static function isJson($str)
+    private static function prepMedia(&$mObj)
     {
-        if (is_string($str) && !empty($str)) {
-            json_decode($str);
-            return (json_last_error() == JSON_ERROR_NONE);
+        // decode blob_data if any
+        if (property_exists($mObj, 'blob_data')) {
+            $blob_data = self::unpyckle($mObj->blob_data);
+            $mObj->type_data = self::mapMediaData($blob_data);
+            unset($mObj->blob_data);
         }
-        return false;
     }
+    // </editor-fold desc="media blob handler">
 
+    // <editor-fold desc="note blob handler">
     /**
-     * custom url encode using specified associative array of replacements
-     *   will default to self::$url_entities if no replacement list is given
-     * @param string $string
-     * @param array $incSpec
-     * @return string
+     * @var string[] $noteTypes
+     * @see https://www.gramps-project.org/docs/gen/gen_lib.html?highlight=notetype#module-gramps.gen.lib.notetype
      */
-    public static function urlEncode($string, $entities = null)
-    {
-        if (is_null($entities))
-            $entities = self::$url_entities;
-
-        if (!self::isAssoc($entities))
-            throw new \Exception("invalid replacement list");
-
-        return str_replace(array_keys($entities), array_values($entities), $string);
-    }
-
-    /**
-     * map a given media file record to point to a URL in an AWS S3 bucket
-     *
-     * @param string $filename
-     * @param null|string $path
-     * @param null|string $bucket
-     * @param null|string $region
-     * @return string
-     * @throws \Exception
-     */
-    public static function getUrlFromAwsBucket($filename, $path = null, $bucket = null, $region = null)
-    {
-        if (empty($region) && function_exists('env'))
-            $region = env('AWS_REGION', 'us-east-1');
-        if (empty($bucket) && function_exists('env'))
-            $bucket = env('AWS_BUCKET', 'grampsmedia');
-        // replace any backslashes and get rid of any leading or trailing slashes or whitespace on path
-        if (!empty($path)) {
-            // swap backslashes and remove multiple separators
-            $path = preg_replace("|[\\\\/]+|", "/", $path);
-            // remove any leading path separator
-            $path = preg_replace('|[/\s]*$|', '', $path);
-            // remove any trailing path separator
-            $path = preg_replace('|^[/\s]*|', '', $path);
-        }
-        // if the (stripped) path is not empty, add a trailing slash to the path
-        $fullpath = self::urlEncode((empty($path) ? '' : $path . "/") . $filename);
-
-        return sprintf('https://%s.s3.%s.amazonaws.com/%s', $bucket, $region, $fullpath);
-    }
-
-    private static $repositoryType = [
-        '-1' => "UNKNOWN",
+    private static $noteTypes = [
         '0' => "CUSTOM",
-        '1' => "LIBRARY",
-        '2' => "CEMETERY",
-        '3' => "CHURCH",
-        '4' => "ARCHIVE",
-        '5' => "ALBUM",
-        '6' => "WEBSITE",
-        '7' => "BOOKSTORE",
-        '8' => "COLLECTION",
-        '9' => "SAFE"
+        '1' => "GENERAL",
+        '2' => "RESEARCH",
+        '3' => "TRANSCRIPT",
+        '4' => "PERSON",
+        '5' => "ATTRIBUTE",
+        '6' => "ADDRESS",
+        '7' => "ASSOCIATION",
+        '8' => "LDS",
+        '9' => "FAMILY",
+        '10' => "EVENT",
+        '11' => "EVENTREF",
+        '12' => "SOURCE",
+        '13' => "SOURCEREF",
+        '14' => "PLACE",
+        '15' => "REPO",
+        '16' => "REPOREF",
+        '17' => "MEDIA",
+        '18' => "MEDIAREF",
+        '19' => "CHILDREF",
+        '20' => "PERSONNAME",
+        '21' => "SOURCE_TEXT",
+        '22' => "CITATION",
+        '23' => "REPORT_TEXT",
+        '24' => "HTML_CODE",
+        '25' => "TODO",
+        '26' => "LINK"
     ];
 
     /**
@@ -941,53 +1029,97 @@ class GrampsdbHelper
      * @param array $data
      * @return array|false
      */
-    private static function mapRepositoryData($data)
+    private static function mapNoteData($data)
     {
-        if (count($data) != 10) return false;
-        $repositoryTypeId = $data[2][0];
-        $repositoryTypeName = (empty($data[2][1]) ? (array_key_exists($repositoryTypeId, self::$repositoryTypes) ? self::$repositoryTypes[$repositoryTypeId] : '') : $data[2][1]);
+        if (count($data) != 8) return false;
+        $noteTypeId = $data[4][0];
+        $noteTypeName = (empty($data[4][1]) ? (array_key_exists($noteTypeId, self::$noteTypes) ? self::$noteTypes[$noteTypeId] : '') : $data[4][1]);
         return [
             'handle' => $data[0],
             'gramps_id' => $data[1],
+            'text' => $data[2],
+            'format' => $data[3],
             'type' => [
-                'type_id' => $repositoryTypeId,
-                'type_name' => $repositoryTypeName
+                'type_id' => $noteTypeId,
+                'type_name' => $noteTypeName
             ],
-            'name' => $data[3],
-            'note_list' => $data[4],
-            'address_list' => $data[5],
-            'urls' => $data[6],
-            'change' => $data[7],
-            'tag_list' => $data[8],
-            'private' => $data[9]
+            'change' => $data[5],
+            'tag_list' => $data[6],
+            'private' => $data[7]
         ];
     }
-    private static function prepRepository(&$rObj)
+
+    /**
+     * @param object $nObj
+     */
+    private static function prepNote(&$nObj)
     {
         // decode blob_data if any
-        if (property_exists($rObj, 'blob_data')) {
+        if (property_exists($nObj, 'blob_data')) {
             // try different methods to unpickle
-            $blob_data = self::unpickle($rObj->blob_data);
+            $blob_data = self::unpickle($nObj->blob_data);
             if ($blob_data != false) {
-                $rObj->type_data = self::mapRepositoryData($blob_data);
-                unset($rObj->blob_data);
+                $nObj->type_data = self::mapNoteData($blob_data);
+                unset($nObj->blob_data);
             }
         }
     }
-    public static function getRepositoryByHandle($rhan)
+    // </editor-fold desc="note blob handler">
+
+    // <editor-fold desc="person blob handler">
+    /**
+     * add keys to the array created from blob_data for a person type
+     *
+     * @param array $data
+     * @return array|false
+     */
+    private static function mapPersonData($data)
     {
-        $rRec = self::getDbHandle()->table('repository')->where(['handle' => $rhan])->first();
-        self::prepRepository($rRec);
-        return $rRec;
+        if (count($data) != 21) return false;
+        $genders = ['Female', 'Male', 'Unknown'];
+        $genderId = $data[2];
+        return [
+            'handle' => $data[0],
+            'gramps_id' => $data[1],
+            'gender' => $genders[$genderId],
+            'primary_name' => $data[3],
+            'alternate_names' => $data[4],
+            'death_ref_index' => $data[5],
+            'birth_ref_index' => $data[6],
+            'event_ref_index' => $data[7],
+            'family_list' => $data[8],
+            'parent_family_list' => $data[9],
+            'media_list' => $data[10],
+            'address_list' => $data[11],
+            'attribute_list' => $data[12],
+            'urls' => $data[13],
+            'lds_ord_list' => $data[14],
+            'citation_list' => $data[15],
+            'note_list' => $data[16],
+            'change' => $data[17],
+            'tag_list' => $data[18],
+            'private' => $data[19],
+            'person_ref_list' => $data[20]
+        ];
     }
 
-    public static function getRepositoryById($gId)
+    private static function prepPerson(&$pObj, $withMedia=false)
     {
-        $rRec = self::getDbHandle()->table('repository')->where(['gramps_id' => $gId])->first();
-        self::prepRepository($rRec);
-        return $rRec;
+        // decode blob_data if any
+        if (property_exists($pObj, 'blob_data')) {
+            // try different methods to unpickle
+            $blob_data = self::unpickle($pObj->blob_data);
+            if ($blob_data != false) {
+                $pObj->type_data = self::mapPersonData($blob_data);
+                unset($pObj->blob_data);
+            }
+        }
+        if ($withMedia)
+            $pObj->media = self::getMediaByPersonHandle($pObj->handle);
     }
+    // </editor-fold desc="person blob handler">
 
+    // <editor-fold desc="place blob handler">
     /**
      * @var string[] $placeTypes
      * @see https://www.gramps-project.org/docs/gen/gen_lib.html?highlight=placetype#module-gramps.gen.lib.placetype
@@ -1053,6 +1185,9 @@ class GrampsdbHelper
         ];
     }
 
+    /**
+     * @param object $pObj
+     */
     private static function prepPlace(&$pObj)
     {
         // decode blob_data if any
@@ -1065,53 +1200,24 @@ class GrampsdbHelper
             }
         }
     }
+    // </editor-fold desc="place blob handler">
 
-    public static function getPlaceByHandle($phan)
-    {
-        $pRec = self::getDbHandle()->table('place')->where(['handle' => $phan])->first();
-        self::prepNote($pRec);
-        return $pRec;
-    }
-
-    public static function getPlaceById($gId)
-    {
-        $pRec = self::getDbHandle()->table('place')->where(['gramps_id' => $gId])->first();
-        self::prepNote($pRec);
-        return $pRec;
-    }
-
+    // <editor-fold desc="repository blob handler">
     /**
-     * @var string[] $noteTypes
-     * @see https://www.gramps-project.org/docs/gen/gen_lib.html?highlight=notetype#module-gramps.gen.lib.notetype
+     * @var string[] $repositoryType
      */
-    private static $noteTypes = [
+    private static $repositoryType = [
+        '-1' => "UNKNOWN",
         '0' => "CUSTOM",
-        '1' => "GENERAL",
-        '2' => "RESEARCH",
-        '3' => "TRANSCRIPT",
-        '4' => "PERSON",
-        '5' => "ATTRIBUTE",
-        '6' => "ADDRESS",
-        '7' => "ASSOCIATION",
-        '8' => "LDS",
-        '9' => "FAMILY",
-        '10' => "EVENT",
-        '11' => "EVENTREF",
-        '12' => "SOURCE",
-        '13' => "SOURCEREF",
-        '14' => "PLACE",
-        '15' => "REPO",
-        '16' => "REPOREF",
-        '17' => "MEDIA",
-        '18' => "MEDIAREF",
-        '19' => "CHILDREF",
-        '20' => "PERSONNAME",
-        '21' => "SOURCE_TEXT",
-        '22' => "CITATION",
-        '23' => "REPORT_TEXT",
-        '24' => "HTML_CODE",
-        '25' => "TODO",
-        '26' => "LINK"
+        '1' => "LIBRARY",
+        '2' => "CEMETERY",
+        '3' => "CHURCH",
+        '4' => "ARCHIVE",
+        '5' => "ALBUM",
+        '6' => "WEBSITE",
+        '7' => "BOOKSTORE",
+        '8' => "COLLECTION",
+        '9' => "SAFE"
     ];
 
     /**
@@ -1120,53 +1226,49 @@ class GrampsdbHelper
      * @param array $data
      * @return array|false
      */
-    private static function mapNoteData($data)
+    private static function mapRepositoryData($data)
     {
-        if (count($data) != 8) return false;
-        $noteTypeId = $data[4][0];
-        $noteTypeName = (empty($data[4][1]) ? (array_key_exists($noteTypeId, self::$noteTypes) ? self::$noteTypes[$noteTypeId] : '') : $data[4][1]);
+        if (count($data) != 10) return false;
+        $repositoryTypeId = $data[2][0];
+        $repositoryTypeName = (empty($data[2][1]) ? (array_key_exists($repositoryTypeId, self::$repositoryTypes) ? self::$repositoryTypes[$repositoryTypeId] : '') : $data[2][1]);
         return [
             'handle' => $data[0],
             'gramps_id' => $data[1],
-            'text' => $data[2],
-            'format' => $data[3],
             'type' => [
-                'type_id' => $noteTypeId,
-                'type_name' => $noteTypeName
+                'type_id' => $repositoryTypeId,
+                'type_name' => $repositoryTypeName
             ],
-            'change' => $data[5],
-            'tag_list' => $data[6],
-            'private' => $data[7]
+            'name' => $data[3],
+            'note_list' => $data[4],
+            'address_list' => $data[5],
+            'urls' => $data[6],
+            'change' => $data[7],
+            'tag_list' => $data[8],
+            'private' => $data[9]
         ];
     }
 
-    private static function prepNote(&$nObj)
+    /**
+     * @param object $rObj
+     */
+    private static function prepRepository(&$rObj)
     {
         // decode blob_data if any
-        if (property_exists($nObj, 'blob_data')) {
+        if (property_exists($rObj, 'blob_data')) {
             // try different methods to unpickle
-            $blob_data = self::unpickle($nObj->blob_data);
+            $blob_data = self::unpickle($rObj->blob_data);
             if ($blob_data != false) {
-                $nObj->type_data = self::mapNoteData($blob_data);
-                unset($nObj->blob_data);
+                $rObj->type_data = self::mapRepositoryData($blob_data);
+                unset($rObj->blob_data);
             }
         }
     }
+    // </editor-fold desc="repository blob handler">
 
-    public static function getNoteByHandle($nhan)
-    {
-        $nRec = self::getDbHandle()->table('note')->where(['handle' => $nhan])->first();
-        self::prepNote($nRec);
-        return $nRec;
-    }
-
-    public static function getNoteById($gId)
-    {
-        $nRec = self::getDbHandle()->table('note')->where(['gramps_id' => $gId])->first();
-        self::prepNote($nRec);
-        return $nRec;
-    }
-
+    // <editor-fold desc="source blob handler">
+    /**
+     * @var string[]
+     */
     private static $sourceTypes = [
         '-1' => "UNKNOWN",
         '0' => "CUSTOM",
@@ -1185,6 +1287,10 @@ class GrampsdbHelper
         '13' => "VIDEO"
     ];
 
+    /**
+     * @param array $data
+     * @return array|false
+     */
     private static function mapRepoRef($data) {
         if (count($data) != 5) return false;
         $sourceTypeId = $data[3][0];
@@ -1201,6 +1307,7 @@ class GrampsdbHelper
             'private' => $data[4],
         ];
     }
+
     /**
      * map keys to source type blob_data
      *
@@ -1233,6 +1340,9 @@ class GrampsdbHelper
         return $sourceData;
     }
 
+    /**
+     * @param object $sObj
+     */
     private static function prepSource(&$sObj)
     {
         // decode blob_data if any
@@ -1245,19 +1355,6 @@ class GrampsdbHelper
             }
         }
     }
-
-    public static function getSourceByHandle($shan)
-    {
-        $sRec = self::getDbHandle()->table('source')->where(['handle' => $shan])->first();
-        self::prepSource($sRec);
-        return $sRec;
-    }
-
-    public static function getSourceById($gId)
-    {
-        $sRec = self::getDbHandle()->table('source')->where(['gramps_id' => $gId])->first();
-        self::prepNote($sRec);
-        return $sRec;
-    }
-
+    // </editor-fold desc="source blob handler">
+    // </editor-fold desc="blob_data handlers">
 }
