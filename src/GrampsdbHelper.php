@@ -437,7 +437,6 @@ class GrampsdbHelper
         return $media;
     }
 
-    // todo utilize 'prep' function for blob data
     /**
      * retrieve all the media entries for a person by reference using a gramps_id
      *
@@ -643,7 +642,7 @@ class GrampsdbHelper
     public static function getSubClass($classType, $handle, $withExtra=false)
     {
         $subClass = null;
-        switch ($classType) { // todo finish all cases
+        switch ($classType) {
             case 'Citation':
                 $subClass = self::getCitationByHandle($handle);
                 break;
@@ -733,18 +732,18 @@ class GrampsdbHelper
     {
         if (count($data) != 12) return false;
         return [
-            'handle' => $data[0],
-            'gramps_id' => $data[1],
-            'date' => $data[2], // todo convert to php date
-            'page' => $data[3],
-            'confidence' => $data[4],
+            'handle'        => $data[0],
+            'gramps_id'     => $data[1],
+            'date'          => $data[2], // todo convert to php date
+            'page'          => $data[3],
+            'confidence'    => $data[4],
             'source_handle' => $data[5],
-            'note_list' => $data[6],
-            'media_list' => $data[7],
-            'srcattr_list' => $data[8],
-            'change' => $data[9],
-            'tag_list' => $data[10],
-            'private' => $data[11]
+            'note_list'     => $data[6],
+            'media_list'    => $data[7],
+            'srcattr_list'  => $data[8],
+            'change'        => $data[9],
+            'tag_list'      => $data[10],
+            'private'       => $data[11]
         ];
     }
 
@@ -774,16 +773,16 @@ class GrampsdbHelper
      */
     private static $eventTypes = [
         '-1' => 'UNKNOWN',
-        '0' => 'CUSTOM',
-        '1' => 'MARRIAGE',
-        '2' => 'MARR_SETTL',
-        '3' => 'MARR_LIC',
-        '4' => 'MARR_CONTR',
-        '5' => 'MARR_BANNS',
-        '6' => 'ENGAGEMENT',
-        '7' => 'DIVORCE',
-        '8' => 'DIV_FILING',
-        '9' => 'ANNULMENT',
+        '0'  => 'CUSTOM',
+        '1'  => 'MARRIAGE',
+        '2'  => 'MARR_SETTL',
+        '3'  => 'MARR_LIC',
+        '4'  => 'MARR_CONTR',
+        '5'  => 'MARR_BANNS',
+        '6'  => 'ENGAGEMENT',
+        '7'  => 'DIVORCE',
+        '8'  => 'DIV_FILING',
+        '9'  => 'ANNULMENT',
         '10' => 'MARR_ALT',
         '11' => 'ADOPT',
         '12' => 'BIRTH',
@@ -833,22 +832,22 @@ class GrampsdbHelper
         $eventTypeId = $data[2][0];
         $eventTypeName = (empty($data[2][1]) ? (array_key_exists($eventTypeId, self::$eventTypes) ? self::$eventTypes[$eventTypeId] : '') : $data[2][1]);
         return [
-            'handle' => $data[0],
-            'gramps_id' => $data[1],
+            'handle'         => $data[0],
+            'gramps_id'      => $data[1],
             'type' => [
-                'type_id' => $eventTypeId,
+                'type_id'   => $eventTypeId,
                 'type_name' => $eventTypeName
             ],
-            'date' => $data[3], // todo convert to php date?
-            'description' => $data[4],
-            'place' => $data[5],
-            'citation_list' => $data[6],
-            'note_list' => $data[7],
-            'media_list' => $data[8],
+            'date'           => $data[3], // todo convert to php date?
+            'description'    => $data[4],
+            'place'          => $data[5],
+            'citation_list'  => $data[6],
+            'note_list'      => $data[7],
+            'media_list'     => $data[8],
             'attribute_list' => $data[9],
-            'change' => $data[10],
-            'tag_list' => $data[11],
-            'private' => $data[12]
+            'change'         => $data[10],
+            'tag_list'       => $data[11],
+            'private'        => $data[12]
         ];
     }
 
@@ -896,24 +895,24 @@ class GrampsdbHelper
         $familyTypeId = $data[5][0];
         $familyTypeName = (empty($data[5][1]) ? (array_key_exists($familyTypeId, self::$familyTypes) ? self::$familyTypes[$familyTypeId] : '') : $data[5][1]);
         return [
-            'handle' => $data[0],
-            'gramps_id' => $data[1],
-            'father_handle' => $data[2],
-            'mother_handle' => $data[3],
+            'handle'         => $data[0],
+            'gramps_id'      => $data[1],
+            'father_handle'  => $data[2],
+            'mother_handle'  => $data[3],
             'child_ref_list' => $data[4],
             'type' => [
-                'type_id' => $familyTypeId,
+                'type_id'   => $familyTypeId,
                 'type_name' => $familyTypeName
             ],
             'event_ref_list' => $data[6],
-            'media_list' => $data[7],
+            'media_list'     => $data[7],
             'attribute_list' => $data[8],
-            'lds_ord_list' => $data[9],
-            'citation_list' => $data[10],
-            'note_list' => $data[11],
-            'change' => $data[12],
-            'tag_list' => $data[13],
-            'private' => $data[14]
+            'lds_ord_list'   => $data[9],
+            'citation_list'  => $data[10],
+            'note_list'      => $data[11],
+            'change'         => $data[12],
+            'tag_list'       => $data[13],
+            'private'        => $data[14]
         ];
     }
 
@@ -955,19 +954,19 @@ class GrampsdbHelper
     {
         if (count($data) != 13) return false;
         return [
-            'handle' => $data[0],
-            'gramps_id' => $data[1],
-            'path' => $data[2],
-            'mime' => $data[3],
-            'description' => $data[4],
-            'checksum' => $data[5],
+            'handle'         => $data[0],
+            'gramps_id'      => $data[1],
+            'path'           => $data[2],
+            'mime'           => $data[3],
+            'description'    => $data[4],
+            'checksum'       => $data[5],
             'attribute_list' => $data[6],
-            'citation_list' => $data[7],
-            'note_list' => $data[8],
-            'change' => $data[9],
-            'date' => $data[10], // todo convert to php date
-            'tag_list' => $data[11],
-            'private' => $data[12]
+            'citation_list'  => $data[7],
+            'note_list'      => $data[8],
+            'change'         => $data[9],
+            'date'           => $data[10], // todo convert to php date
+            'tag_list'       => $data[11],
+            'private'        => $data[12]
         ];
     }
 
@@ -998,16 +997,16 @@ class GrampsdbHelper
      * @see https://www.gramps-project.org/docs/gen/gen_lib.html?highlight=notetype#module-gramps.gen.lib.notetype
      */
     private static $noteTypes = [
-        '0' => "CUSTOM",
-        '1' => "GENERAL",
-        '2' => "RESEARCH",
-        '3' => "TRANSCRIPT",
-        '4' => "PERSON",
-        '5' => "ATTRIBUTE",
-        '6' => "ADDRESS",
-        '7' => "ASSOCIATION",
-        '8' => "LDS",
-        '9' => "FAMILY",
+        '0'  => "CUSTOM",
+        '1'  => "GENERAL",
+        '2'  => "RESEARCH",
+        '3'  => "TRANSCRIPT",
+        '4'  => "PERSON",
+        '5'  => "ATTRIBUTE",
+        '6'  => "ADDRESS",
+        '7'  => "ASSOCIATION",
+        '8'  => "LDS",
+        '9'  => "FAMILY",
         '10' => "EVENT",
         '11' => "EVENTREF",
         '12' => "SOURCE",
@@ -1039,17 +1038,17 @@ class GrampsdbHelper
         $noteTypeId = $data[4][0];
         $noteTypeName = (empty($data[4][1]) ? (array_key_exists($noteTypeId, self::$noteTypes) ? self::$noteTypes[$noteTypeId] : '') : $data[4][1]);
         return [
-            'handle' => $data[0],
+            'handle'    => $data[0],
             'gramps_id' => $data[1],
-            'text' => $data[2],
-            'format' => $data[3],
+            'text'      => $data[2],
+            'format'    => $data[3],
             'type' => [
-                'type_id' => $noteTypeId,
+                'type_id'   => $noteTypeId,
                 'type_name' => $noteTypeName
             ],
-            'change' => $data[5],
-            'tag_list' => $data[6],
-            'private' => $data[7]
+            'change'    => $data[5],
+            'tag_list'  => $data[6],
+            'private'   => $data[7]
         ];
     }
 
@@ -1083,27 +1082,27 @@ class GrampsdbHelper
         $genders = ['Female', 'Male', 'Unknown'];
         $genderId = $data[2];
         return [
-            'handle' => $data[0],
-            'gramps_id' => $data[1],
-            'gender' => $genders[$genderId],
-            'primary_name' => $data[3],
-            'alternate_names' => $data[4],
-            'death_ref_index' => $data[5],
-            'birth_ref_index' => $data[6],
-            'event_ref_index' => $data[7],
-            'family_list' => $data[8],
+            'handle'             => $data[0],
+            'gramps_id'          => $data[1],
+            'gender'             => $genders[$genderId],
+            'primary_name'       => $data[3],
+            'alternate_names'    => $data[4],
+            'death_ref_index'    => $data[5],
+            'birth_ref_index'    => $data[6],
+            'event_ref_index'    => $data[7],
+            'family_list'        => $data[8],
             'parent_family_list' => $data[9],
-            'media_list' => $data[10],
-            'address_list' => $data[11],
-            'attribute_list' => $data[12],
-            'urls' => $data[13],
-            'lds_ord_list' => $data[14],
-            'citation_list' => $data[15],
-            'note_list' => $data[16],
-            'change' => $data[17],
-            'tag_list' => $data[18],
-            'private' => $data[19],
-            'person_ref_list' => $data[20]
+            'media_list'         => $data[10],
+            'address_list'       => $data[11],
+            'attribute_list'     => $data[12],
+            'urls'               => $data[13],
+            'lds_ord_list'       => $data[14],
+            'citation_list'      => $data[15],
+            'note_list'          => $data[16],
+            'change'             => $data[17],
+            'tag_list'           => $data[18],
+            'private'            => $data[19],
+            'person_ref_list'    => $data[20]
         ];
     }
 
@@ -1130,16 +1129,16 @@ class GrampsdbHelper
      */
     private static $placeTypes = [
         '-1' => "UNKNOWN",
-        '0' => "CUSTOM",
-        '1' => "COUNTRY",
-        '2' => "STATE",
-        '3' => "COUNTY",
-        '4' => "CITY",
-        '5' => "PARISH",
-        '6' => "LOCALITY",
-        '7' => "STREET",
-        '8' => "PROVINCE",
-        '9' => "REGION",
+        '0'  => "CUSTOM",
+        '1'  => "COUNTRY",
+        '2'  => "STATE",
+        '3'  => "COUNTY",
+        '4'  => "CITY",
+        '5'  => "PARISH",
+        '6'  => "LOCALITY",
+        '7'  => "STREET",
+        '8'  => "PROVINCE",
+        '9'  => "REGION",
         '10' => "DEPARTMENT",
         '11' => "NEIGHBORHOOD",
         '12' => "DISTRICT",
@@ -1165,27 +1164,27 @@ class GrampsdbHelper
         $placeTypeId = $data[8][0];
         $placeTypeName = (empty($data[8][1]) ? (array_key_exists($placeTypeId, self::$placeTypes) ? self::$placeTypes[$placeTypeId] : '') : $data[2][1]);
         return [
-            'handle' => $data[0],
-            'gramps_id' => $data[1],
-            'title' => $data[2],
-            'long' => $data[3],
-            'lat' => $data[4],
+            'handle'        => $data[0],
+            'gramps_id'     => $data[1],
+            'title'         => $data[2],
+            'long'          => $data[3],
+            'lat'           => $data[4],
             'placeref_list' => $data[5],
-            'name' => $data[6],
-            'alt_names' => $data[7],
+            'name'          => $data[6],
+            'alt_names'     => $data[7],
             'type' => [
-                'type_id' => $placeTypeId,
+                'type_id'   => $placeTypeId,
                 'type_name' => $placeTypeName
             ],
-            'code' => $data[9],
-            'alt_loc' => $data[10],
-            'urls' => $data[11],
-            'media_list' => $data[12],
+            'code'          => $data[9],
+            'alt_loc'       => $data[10],
+            'urls'          => $data[11],
+            'media_list'    => $data[12],
             'citation_list' => $data[13],
-            'note_list' => $data[14],
-            'change' => $data[15],
-            'tag_list' => $data[16],
-            'private' => $data[17]
+            'note_list'     => $data[14],
+            'change'        => $data[15],
+            'tag_list'      => $data[16],
+            'private'       => $data[17]
         ];
     }
 
@@ -1212,16 +1211,16 @@ class GrampsdbHelper
      */
     private static $repositoryType = [
         '-1' => "UNKNOWN",
-        '0' => "CUSTOM",
-        '1' => "LIBRARY",
-        '2' => "CEMETERY",
-        '3' => "CHURCH",
-        '4' => "ARCHIVE",
-        '5' => "ALBUM",
-        '6' => "WEBSITE",
-        '7' => "BOOKSTORE",
-        '8' => "COLLECTION",
-        '9' => "SAFE"
+        '0'  => "CUSTOM",
+        '1'  => "LIBRARY",
+        '2'  => "CEMETERY",
+        '3'  => "CHURCH",
+        '4'  => "ARCHIVE",
+        '5'  => "ALBUM",
+        '6'  => "WEBSITE",
+        '7'  => "BOOKSTORE",
+        '8'  => "COLLECTION",
+        '9'  => "SAFE"
     ];
 
     /**
@@ -1236,19 +1235,19 @@ class GrampsdbHelper
         $repositoryTypeId = $data[2][0];
         $repositoryTypeName = (empty($data[2][1]) ? (array_key_exists($repositoryTypeId, self::$repositoryTypes) ? self::$repositoryTypes[$repositoryTypeId] : '') : $data[2][1]);
         return [
-            'handle' => $data[0],
-            'gramps_id' => $data[1],
+            'handle'       => $data[0],
+            'gramps_id'    => $data[1],
             'type' => [
-                'type_id' => $repositoryTypeId,
+                'type_id'   => $repositoryTypeId,
                 'type_name' => $repositoryTypeName
             ],
             'name' => $data[3],
-            'note_list' => $data[4],
+            'note_list'    => $data[4],
             'address_list' => $data[5],
-            'urls' => $data[6],
-            'change' => $data[7],
-            'tag_list' => $data[8],
-            'private' => $data[9]
+            'urls'         => $data[6],
+            'change'       => $data[7],
+            'tag_list'     => $data[8],
+            'private'      => $data[9]
         ];
     }
 
@@ -1275,16 +1274,16 @@ class GrampsdbHelper
      */
     private static $sourceTypes = [
         '-1' => "UNKNOWN",
-        '0' => "CUSTOM",
-        '1' => "AUDIO",
-        '2' => "BOOK",
-        '3' => "CARD",
-        '4' => "ELECTRONIC",
-        '5' => "FICHE",
-        '6' => "FILM",
-        '7' => "MAGAZINE",
-        '8' => "MANUSCRIPT",
-        '9' => "MAP",
+        '0'  => "CUSTOM",
+        '1'  => "AUDIO",
+        '2'  => "BOOK",
+        '3'  => "CARD",
+        '4'  => "ELECTRONIC",
+        '5'  => "FICHE",
+        '6'  => "FILM",
+        '7'  => "MAGAZINE",
+        '8'  => "MANUSCRIPT",
+        '9'  => "MAP",
         '10' => "NEWSPAPER",
         '11' => "PHOTO",
         '12' => "TOMBSTONE",
@@ -1301,14 +1300,14 @@ class GrampsdbHelper
         $sourceTypeName = (empty($data[3][1]) ? (array_key_exists($sourceTypeId, self::$sourceTypes) ? self::$sourceTypes[$sourceTypeId] : '') : $data[3][1]);
 
         return [
-            'note_list' => $data[0],
-            'ref' => $data[1],
+            'note_list'   => $data[0],
+            'ref'         => $data[1],
             'call_number' => $data[2],
             'type' => [
-                'type_id' => $sourceTypeId,
+                'type_id'   => $sourceTypeId,
                 'type_name' => $sourceTypeName
             ],
-            'private' => $data[4],
+            'private'     => $data[4],
         ];
     }
 
@@ -1327,19 +1326,19 @@ class GrampsdbHelper
             array_push($repoRefList, self::mapRepoRef($ref));
 
         $sourceData = [
-            'handle' => $data[0],
-            'gramps_id' => $data[1],
-            'title' => $data[2],
-            'author' => $data[3],
-            'pubinfo' => $data[4],
-            'note_list' => $data[5],
-            'media_list' => $data[6],
-            'abbrev' => $data[7],
-            'change' => $data[8],
+            'handle'         => $data[0],
+            'gramps_id'      => $data[1],
+            'title'          => $data[2],
+            'author'         => $data[3],
+            'pubinfo'        => $data[4],
+            'note_list'      => $data[5],
+            'media_list'     => $data[6],
+            'abbrev'         => $data[7],
+            'change'         => $data[8],
             'attribute_list' => $data[9],
-            'reporef_list' => $repoRefList,
-            'tag_list' => $data[11],
-            'private' => $data[12]
+            'reporef_list'   => $repoRefList,
+            'tag_list'       => $data[11],
+            'private'        => $data[12]
         ];
         return $sourceData;
     }
