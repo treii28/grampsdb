@@ -730,7 +730,7 @@ class GrampsdbHelper
      */
     private static function mapCitationData($data)
     {
-        if (count($data) != 12) return false;
+        if (!is_array($data) || (count($data) != 12)) return false;
         return [
             'handle'        => $data[0],
             'gramps_id'     => $data[1],
@@ -828,7 +828,7 @@ class GrampsdbHelper
      */
     private static function mapEventData($data)
     {
-        if (count($data) != 13) return false;
+        if (!is_array($data) || (count($data) != 13)) return false;
         $eventTypeId = $data[2][0];
         $eventTypeName = (empty($data[2][1]) ? (array_key_exists($eventTypeId, self::$eventTypes) ? self::$eventTypes[$eventTypeId] : '') : $data[2][1]);
         return [
@@ -891,7 +891,7 @@ class GrampsdbHelper
      */
     private static function mapFamilyData($data)
     {
-        if (count($data) != 15) return false;
+        if (!is_array($data) || (count($data) != 15)) return false;
         $familyTypeId = $data[5][0];
         $familyTypeName = (empty($data[5][1]) ? (array_key_exists($familyTypeId, self::$familyTypes) ? self::$familyTypes[$familyTypeId] : '') : $data[5][1]);
         return [
@@ -952,7 +952,8 @@ class GrampsdbHelper
      */
     private static function mapMediaData($data)
     {
-        if (count($data) != 13) return false;
+        if(!is_array($data)) error_log(var_export($data,1).PHP_EOL.debug_print_backtrace());
+        if (!is_array($data) || (count($data) != 13)) return false;
         return [
             'handle'         => $data[0],
             'gramps_id'      => $data[1],
@@ -1034,7 +1035,7 @@ class GrampsdbHelper
      */
     private static function mapNoteData($data)
     {
-        if (count($data) != 8) return false;
+        if (!is_array($data) || (count($data) != 8)) return false;
         $noteTypeId = $data[4][0];
         $noteTypeName = (empty($data[4][1]) ? (array_key_exists($noteTypeId, self::$noteTypes) ? self::$noteTypes[$noteTypeId] : '') : $data[4][1]);
         return [
@@ -1078,7 +1079,7 @@ class GrampsdbHelper
      */
     private static function mapPersonData($data)
     {
-        if (count($data) != 21) return false;
+        if (!is_array($data) || (count($data) != 21)) return false;
         $genders = ['Female', 'Male', 'Unknown'];
         $genderId = $data[2];
         return [
@@ -1160,7 +1161,7 @@ class GrampsdbHelper
      */
     private static function mapPlaceData($data)
     {
-        if (count($data) != 18) return false;
+        if (!is_array($data) || (count($data) != 18)) return false;
         $placeTypeId = $data[8][0];
         $placeTypeName = (empty($data[8][1]) ? (array_key_exists($placeTypeId, self::$placeTypes) ? self::$placeTypes[$placeTypeId] : '') : $data[2][1]);
         return [
@@ -1231,7 +1232,7 @@ class GrampsdbHelper
      */
     private static function mapRepositoryData($data)
     {
-        if (count($data) != 10) return false;
+        if (!is_array($data) || (count($data) != 10)) return false;
         $repositoryTypeId = $data[2][0];
         $repositoryTypeName = (empty($data[2][1]) ? (array_key_exists($repositoryTypeId, self::$repositoryTypes) ? self::$repositoryTypes[$repositoryTypeId] : '') : $data[2][1]);
         return [
@@ -1295,7 +1296,7 @@ class GrampsdbHelper
      * @return array|false
      */
     private static function mapRepoRef($data) {
-        if (count($data) != 5) return false;
+        if (!is_array($data) || (count($data) != 5)) return false;
         $sourceTypeId = $data[3][0];
         $sourceTypeName = (empty($data[3][1]) ? (array_key_exists($sourceTypeId, self::$sourceTypes) ? self::$sourceTypes[$sourceTypeId] : '') : $data[3][1]);
 
@@ -1319,7 +1320,7 @@ class GrampsdbHelper
      */
     private static function mapSourceData($data)
     {
-        if (count($data) != 13) return false;
+        if (!is_array($data) || (count($data) != 13)) return false;
         $repoRefList = [];
         $refList = $data[10];
         foreach($refList as $ref)
