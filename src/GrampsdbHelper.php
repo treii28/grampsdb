@@ -100,6 +100,25 @@ class GrampsdbHelper
         return DB::connection($connName);
     }
 
+    public static function unpickleCached($b) {
+        $bb = base64_encode($b);
+        $bmd = md5($bb);
+        $bsh = sha1($bb);
+        $bch = Unpicklecache::where(['md5' => $bmd, 'sha1' => $bsh])->first();
+        if($bch) {
+            $output = json_decode($bch->mapped);
+        } else {
+            $output = self::unpickle($b);
+            $bcObj = new Unpicklecache([
+                'sha1' => $bsh,
+                'md5' => $bmd,
+                'raw' => serialize($b),
+                'mapped' => json_encode($output)
+            ]);
+            $bcObj->save();
+        }
+        return $output;
+    }
     /**
      * call either a pyinstaller binary or python script with raw blob data to be unpickled
      *
@@ -755,7 +774,7 @@ class GrampsdbHelper
         // decode blob_data if any
         if (property_exists($cObj, 'blob_data')) {
             // try different methods to unpickle
-            $blob_data = self::unpickle($cObj->blob_data);
+            $blob_data = self::unpickleCached($cObj->blob_data);
             if ($blob_data != false) {
                 $cObj->type_data = self::mapCitationData($blob_data);
                 unset($cObj->blob_data);
@@ -859,7 +878,7 @@ class GrampsdbHelper
         // decode blob_data if any
         if (property_exists($eObj, 'blob_data')) {
             // try different methods to unpickle
-            $blob_data = self::unpickle($eObj->blob_data);
+            $blob_data = self::unpickleCached($eObj->blob_data);
             if ($blob_data != false) {
                 $eObj->type_data = self::mapEventData($blob_data);
                 unset($eObj->blob_data);
@@ -928,7 +947,7 @@ class GrampsdbHelper
         // decode blob_data if any
         if (property_exists($fRec, 'blob_data')) {
             // try different methods to unpickle
-            $blob_data = self::unpickle($fRec->blob_data);
+            $blob_data = self::unpickleCached($fRec->blob_data);
             if ($blob_data != false) {
                 $fRec->type_data = self::mapFamilyData($blob_data);
                 unset($fRec->blob_data);
@@ -1060,7 +1079,7 @@ class GrampsdbHelper
         // decode blob_data if any
         if (property_exists($nObj, 'blob_data')) {
             // try different methods to unpickle
-            $blob_data = self::unpickle($nObj->blob_data);
+            $blob_data = self::unpickleCached($nObj->blob_data);
             if ($blob_data != false) {
                 $nObj->type_data = self::mapNoteData($blob_data);
                 unset($nObj->blob_data);
@@ -1111,7 +1130,7 @@ class GrampsdbHelper
         // decode blob_data if any
         if (property_exists($pObj, 'blob_data')) {
             // try different methods to unpickle
-            $blob_data = self::unpickle($pObj->blob_data);
+            $blob_data = self::unpickleCached($pObj->blob_data);
             if ($blob_data != false) {
                 $pObj->type_data = self::mapPersonData($blob_data);
                 unset($pObj->blob_data);
@@ -1196,7 +1215,7 @@ class GrampsdbHelper
         // decode blob_data if any
         if (property_exists($pObj, 'blob_data')) {
             // try different methods to unpickle
-            $blob_data = self::unpickle($pObj->blob_data);
+            $blob_data = self::unpickleCached($pObj->blob_data);
             if ($blob_data != false) {
                 $pObj->type_data = self::mapPlaceData($blob_data);
                 unset($pObj->blob_data);
@@ -1259,7 +1278,7 @@ class GrampsdbHelper
         // decode blob_data if any
         if (property_exists($rObj, 'blob_data')) {
             // try different methods to unpickle
-            $blob_data = self::unpickle($rObj->blob_data);
+            $blob_data = self::unpickleCached($rObj->blob_data);
             if ($blob_data != false) {
                 $rObj->type_data = self::mapRepositoryData($blob_data);
                 unset($rObj->blob_data);
@@ -1351,7 +1370,7 @@ class GrampsdbHelper
         // decode blob_data if any
         if (property_exists($sObj, 'blob_data')) {
             // try different methods to unpickle
-            $blob_data = self::unpickle($sObj->blob_data);
+            $blob_data = self::unpickleCached($sObj->blob_data);
             if ($blob_data != false) {
                 $sObj->type_data = self::mapSourceData($blob_data);
                 unset($sObj->blob_data);
