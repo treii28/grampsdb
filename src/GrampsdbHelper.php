@@ -952,7 +952,6 @@ class GrampsdbHelper
      */
     private static function mapMediaData($data)
     {
-        if(!is_array($data)) error_log(var_export($data,1).PHP_EOL.debug_print_backtrace());
         if (!is_array($data) || (count($data) != 13)) return false;
         return [
             'handle'         => $data[0],
