@@ -986,8 +986,8 @@ class GrampsdbHelper
         // insert relative url from site root for this server
         //$mRec->url = preg_replace('|.*'.DIRECTORY_SEPARATOR.'([^'.DIRECTORY_SEPARATOR.']+)$|', '/'.$mPath."/$1", $mRec->path);
         $media_path = (function_exists('env') ? env('GEDCOM_MEDIA_PATH', 'gedcomx/media') : 'gedcomx/media');
-        $mRec->url = self::getUrlFromAwsBucket(basename($mRec->path), $media_path);
-        if ($skipPath) unset($mRec->path); // remove path if not relevant to local resources
+        $mObj->url = self::getUrlFromAwsBucket(basename($mObj->path), $media_path);
+        if ($skipPath) unset($mObj->path); // remove path if not relevant to local resources
     }
     // </editor-fold desc="media blob handler">
 
