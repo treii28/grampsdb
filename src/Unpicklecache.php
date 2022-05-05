@@ -9,6 +9,7 @@ class Unpicklecache extends Model
 {
     //use HasFactory;
     protected $fillable = [
+        'dataType', 'gramps_id',
         //'sha1', 'md5',
         // 'raw',
         'mapped'

@@ -4,6 +4,7 @@
 
 namespace Treii28\Grampsdb;
 
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 
 class GrampsdbHelper
@@ -97,6 +98,7 @@ class GrampsdbHelper
     public static function getDbHandle($connName = "grampsdb")
     {
         if (empty($connName)) $connName = self::$dbConn;
+        //$dbname = Config::get('grampsdb.database.connections.grampsdb');
         return DB::connection($connName);
     }
 
@@ -107,12 +109,13 @@ class GrampsdbHelper
             $output = json_decode($bch->mapped);
         } else {
             $output = self::unpickle($b);
-            $bcObj = new Unpicklecache([
+            $data = [
                 'dataType' => $dataType, 'gramps_id' => $gramps_id,
                 //'sha1' => sha1(base64_encode($b)), 'md5' => md5(base64_encode($b)),
                 //'raw' => serialize($b),
                 'mapped' => json_encode($output)
-            ]);
+            ];
+            $bcObj = new Unpicklecache($data);
             $bcObj->save();
         }
         return $output;

@@ -20,7 +20,7 @@ class GrampsdbServiceProvider extends ServiceProvider
         // $this->loadRoutesFrom(__DIR__.'/routes.php');
 
         Config::set('database.connections.grampsdb',
-            Config::get('package::database.connections.grampsdb'));
+            Config::get('grampsdb.database.connections.grampsdb'));
 
         // Publishing is only necessary when using the CLI.
         if ($this->app->runningInConsole()) {
