@@ -15,9 +15,11 @@ class CreateUnpicklecachesTable extends Migration
     {
         Schema::create('unpicklecaches', function (Blueprint $table) {
             $table->id();
-            $table->string("sha1");
-            $table->string("md5");
-            $table->binary("raw");
+            $table->string("dataType");
+            $table->string("gramps_id");
+            //$table->string("sha1");
+            //$table->string("md5");
+            //$table->binary("raw");
             $table->binary("mapped");
             $table->timestamps();
         });

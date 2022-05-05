@@ -94,25 +94,23 @@ class GrampsdbHelper
      * @param string|null $connName
      * @return \Illuminate\Database\ConnectionInterface
      */
-    public static function getDbHandle($connName = null)
+    public static function getDbHandle($connName = "grampsdb")
     {
         if (empty($connName)) $connName = self::$dbConn;
         return DB::connection($connName);
     }
 
-    public static function unpickleCached($b) {
-        $bb = base64_encode($b);
-        $bmd = md5($bb);
-        $bsh = sha1($bb);
-        $bch = Unpicklecache::where(['md5' => $bmd, 'sha1' => $bsh])->first();
+    public static function unpickleCached($b,$dataType,$gramps_id) {
+        $bch = Unpicklecache::where(['dataType' => $dataType, 'gramps_id' => $gramps_id])->first();
+        //$bch = Unpicklecache::where(['md5' => md5(base64_encode($b)), 'sha1' => sha1(base64_encode($b))])->first();
         if($bch) {
             $output = json_decode($bch->mapped);
         } else {
             $output = self::unpickle($b);
             $bcObj = new Unpicklecache([
-                'sha1' => $bsh,
-                'md5' => $bmd,
-                'raw' => serialize($b),
+                'dataType' => $dataType, 'gramps_id' => $gramps_id,
+                //'sha1' => sha1(base64_encode($b)), 'md5' => md5(base64_encode($b)),
+                //'raw' => serialize($b),
                 'mapped' => json_encode($output)
             ]);
             $bcObj->save();
@@ -774,7 +772,7 @@ class GrampsdbHelper
         // decode blob_data if any
         if (property_exists($cObj, 'blob_data')) {
             // try different methods to unpickle
-            $blob_data = self::unpickleCached($cObj->blob_data);
+            $blob_data = self::unpickleCached($cObj->blob_data,'Citation',$cObj->gramps_id);
             if ($blob_data != false) {
                 $cObj->type_data = self::mapCitationData($blob_data);
                 unset($cObj->blob_data);
@@ -878,7 +876,7 @@ class GrampsdbHelper
         // decode blob_data if any
         if (property_exists($eObj, 'blob_data')) {
             // try different methods to unpickle
-            $blob_data = self::unpickleCached($eObj->blob_data);
+            $blob_data = self::unpickleCached($eObj->blob_data,'Event',$eObj->gramps_id);
             if ($blob_data != false) {
                 $eObj->type_data = self::mapEventData($blob_data);
                 unset($eObj->blob_data);
@@ -939,25 +937,25 @@ class GrampsdbHelper
      * unpickle blob_data and get person objects if specified
      * note: only populates mother and father if they are previously empty
      *
-     * @param object $fRec
+     * @param object $fObj
      * @param boolean $withPersons
      */
-    private static function prepFamily(&$fRec, $withPersons=false)
+    private static function prepFamily(&$fObj, $withPersons=false)
     {
         // decode blob_data if any
-        if (property_exists($fRec, 'blob_data')) {
+        if (property_exists($fObj, 'blob_data')) {
             // try different methods to unpickle
-            $blob_data = self::unpickleCached($fRec->blob_data);
+            $blob_data = self::unpickleCached($fObj->blob_data,'Family',$fObj->grampsId);
             if ($blob_data != false) {
-                $fRec->type_data = self::mapFamilyData($blob_data);
-                unset($fRec->blob_data);
+                $fObj->type_data = self::mapFamilyData($blob_data);
+                unset($fObj->blob_data);
             }
         }
         if ($withPersons == true) {
-            if (!empty($fRec->father_handle))
-                $fRec->father = self::getPersonByHandle($fRec->father_handle);
-            if (!empty($fRec->mother_handle))
-                $fRec->mother = self::getPersonByHandle($fRec->mother_handle);
+            if (!empty($fObj->father_handle))
+                $fObj->father = self::getPersonByHandle($fObj->father_handle);
+            if (!empty($fObj->mother_handle))
+                $fObj->mother = self::getPersonByHandle($fObj->mother_handle);
         }
     }
     // </editor-fold desc="family blob handler">
@@ -1079,7 +1077,7 @@ class GrampsdbHelper
         // decode blob_data if any
         if (property_exists($nObj, 'blob_data')) {
             // try different methods to unpickle
-            $blob_data = self::unpickleCached($nObj->blob_data);
+            $blob_data = self::unpickleCached($nObj->blob_data,'Note', $nObj->gramps_id);
             if ($blob_data != false) {
                 $nObj->type_data = self::mapNoteData($blob_data);
                 unset($nObj->blob_data);
@@ -1130,7 +1128,7 @@ class GrampsdbHelper
         // decode blob_data if any
         if (property_exists($pObj, 'blob_data')) {
             // try different methods to unpickle
-            $blob_data = self::unpickleCached($pObj->blob_data);
+            $blob_data = self::unpickleCached($pObj->blob_data, 'Person', $pObj->gramps_id);
             if ($blob_data != false) {
                 $pObj->type_data = self::mapPersonData($blob_data);
                 unset($pObj->blob_data);
@@ -1208,17 +1206,17 @@ class GrampsdbHelper
     }
 
     /**
-     * @param object $pObj
+     * @param object $lObj
      */
-    private static function prepPlace(&$pObj)
+    private static function prepPlace(&$lObj)
     {
         // decode blob_data if any
-        if (property_exists($pObj, 'blob_data')) {
+        if (property_exists($lObj, 'blob_data')) {
             // try different methods to unpickle
-            $blob_data = self::unpickleCached($pObj->blob_data);
+            $blob_data = self::unpickleCached($lObj->blob_data, 'Place', $lObj->gramps_id);
             if ($blob_data != false) {
-                $pObj->type_data = self::mapPlaceData($blob_data);
-                unset($pObj->blob_data);
+                $lObj->type_data = self::mapPlaceData($blob_data);
+                unset($lObj->blob_data);
             }
         }
     }
@@ -1278,7 +1276,7 @@ class GrampsdbHelper
         // decode blob_data if any
         if (property_exists($rObj, 'blob_data')) {
             // try different methods to unpickle
-            $blob_data = self::unpickleCached($rObj->blob_data);
+            $blob_data = self::unpickleCached($rObj->blob_data, 'Repository', $rObj->gramps_id);
             if ($blob_data != false) {
                 $rObj->type_data = self::mapRepositoryData($blob_data);
                 unset($rObj->blob_data);
@@ -1370,7 +1368,7 @@ class GrampsdbHelper
         // decode blob_data if any
         if (property_exists($sObj, 'blob_data')) {
             // try different methods to unpickle
-            $blob_data = self::unpickleCached($sObj->blob_data);
+            $blob_data = self::unpickleCached($sObj->blob_data,'Source', $sObj->gramps_id);
             if ($blob_data != false) {
                 $sObj->type_data = self::mapSourceData($blob_data);
                 unset($sObj->blob_data);

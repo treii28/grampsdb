@@ -2,6 +2,7 @@
 
 namespace Treii28\Grampsdb;
 
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\ServiceProvider;
 
 class GrampsdbServiceProvider extends ServiceProvider
@@ -17,6 +18,9 @@ class GrampsdbServiceProvider extends ServiceProvider
         // $this->loadViewsFrom(__DIR__.'/../resources/views', 'treii28');
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
         // $this->loadRoutesFrom(__DIR__.'/routes.php');
+
+        Config::set('database.connections.grampsdb',
+            Config::get('package::database.connections.grampsdb'));
 
         // Publishing is only necessary when using the CLI.
         if ($this->app->runningInConsole()) {
