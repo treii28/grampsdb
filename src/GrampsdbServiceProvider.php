@@ -65,6 +65,11 @@ class GrampsdbServiceProvider extends ServiceProvider
             __DIR__.'/../config/grampsdb.php' => config_path('grampsdb.php'),
         ], 'grampsdb.config');
 
+        // publish a default grampsdb starter database
+        $this->publishes([
+            __DIR__.'/../database/data/grampsdb.sqlite' => database_path('data/grampsdb.sqlite'),
+        ], 'grampsdb.database');
+
         // Publishing the views.
         /*$this->publishes([
             __DIR__.'/../resources/views' => base_path('resources/views/vendor/treii28'),
