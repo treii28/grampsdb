@@ -7,6 +7,8 @@
 
 Gramps sqlite3 database helper to allow accessing the grampsdb in laravel.
 
+**This is still very much a work in progress 5/2022** 
+
 ## Installation
 
 Via Composer
