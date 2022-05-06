@@ -103,22 +103,23 @@ class GrampsdbHelper
     }
 
     public static function unpickleCached($b,$dataType,$gramps_id) {
+        if(!self::isBinary($b))
+            throw new GrampsdbException(sprintf("%s - invalid blob_data"));
+        $bHash = sha1(base64_encode($b));
         $bch = Unpicklecache::where(['dataType' => $dataType, 'gramps_id' => $gramps_id])->first();
-        //$bch = Unpicklecache::where(['md5' => md5(base64_encode($b)), 'sha1' => sha1(base64_encode($b))])->first();
-        if($bch) {
-            $output = json_decode($bch->mapped);
-        } else {
+
+        if(!(($bch instanceof Unpicklecache) && ($bHash == $bch->hash))) {
             $output = self::unpickle($b);
-            $data = [
-                'dataType' => $dataType, 'gramps_id' => $gramps_id,
-                //'sha1' => sha1(base64_encode($b)), 'md5' => md5(base64_encode($b)),
-                //'raw' => serialize($b),
-                'mapped' => json_encode($output)
-            ];
-            $bcObj = new Unpicklecache($data);
-            $bcObj->save();
+            if(!($bch instanceof Unpicklecache)) {
+                $bch = new Unpicklecache();
+                $bch->dataType  = $dataType;
+                $bch->gramps_id = $gramps_id;
+            }
+            $bch->hash      = $bHash;
+            $bch->json      = json_encode($output);
+            $bch->save();
         }
-        return $output;
+        return $bch->json;
     }
     /**
      * call either a pyinstaller binary or python script with raw blob data to be unpickled
@@ -293,6 +294,18 @@ class GrampsdbHelper
         $fullpath = self::urlEncode((empty($path) ? '' : $path . "/") . $filename);
 
         return sprintf('https://%s.s3.%s.amazonaws.com/%s', $bucket, $region, $fullpath);
+    }
+
+    /**
+     * Determine whether the given value is a binary string by checking to see if it has detectable character encoding.
+     *
+     * @param string $value
+     *
+     * @return bool
+     */
+    public static function isBinary($value): bool
+    {
+        return false === mb_detect_encoding((string)$value, null, true);
     }
     // </editor-fold desc="utility functions">
 

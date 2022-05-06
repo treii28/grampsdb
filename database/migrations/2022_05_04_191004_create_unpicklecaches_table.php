@@ -17,10 +17,9 @@ class CreateUnpicklecachesTable extends Migration
             $table->id();
             $table->string("dataType");
             $table->string("gramps_id");
-            //$table->string("sha1");
-            //$table->string("md5");
+            $table->string("hash");
             //$table->binary("raw");
-            $table->binary("mapped");
+            $table->binary("json");
             $table->timestamps();
         });
     }
