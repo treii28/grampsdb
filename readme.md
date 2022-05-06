@@ -45,7 +45,7 @@ It will attempt to *'unpickle'* the blob_data in each table using a call to pyth
 
 The data is extracted in the python script and returned as json. (unpickle.py will accept either a base64 encoded string of the blob_data on the command line or can have the raw byte binary data injected via stdin)  The resulting json data is then mapped to key/value pairs.
 
-The call to python can be slow, so the code includes a 'caching' layer for extracting the blob data that checks a sha1 string stored with the cached entry to validate if the blob data has changed. A Seeder class is included to build a full cache of all records to speed up the library when you run it prior to use. Cached entries included the unpickled data stored as a json string. (unmapped)
+The call to python can be slow, so the code includes a 'caching' layer for extracting the blob data that checks a sha1 string stored with the cached entry to validate if the blob data has changed. A Seeder class is included to build a full cache of all records to speed up the library if run it prior to use. Cached entries included the unpickled data stored as a json string. (unmapped)
 
 ```bash
     # initialize the Unpicklecache table
@@ -53,7 +53,7 @@ The call to python can be slow, so the code includes a 'caching' layer for extra
     $ php artisan  db:seed --class="\\Treii28\\Grampsdb\\Database\\CacheSeeder"
 ```
 
-Depending on the size of your tree and the number of sources or other data, this proces can take some time.
+Depending on the size of your tree and the number of sources or other data, this process can take some time.
 
 Only reading is done from the gramps sqlite file, although it's still recommended to make a copy of the gramps file (as opposed to giving the direct path or using a symlink).  Cached data is stored in the main laravel database connection in a Unpicklecache table accessible from the Unpicklecache model.  It keys of the dataType (e.g. 'Person', 'Family', 'Source', etc.) and the gramps_id.
 

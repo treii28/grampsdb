@@ -95,10 +95,14 @@ class GrampsdbHelper
      * @param string|null $connName
      * @return \Illuminate\Database\ConnectionInterface
      */
-    public static function getDbHandle($connName = "grampsdb")
+    public static function getDbHandle($connName=null)
     {
-        if (empty($connName)) $connName = self::$dbConn;
-        //$dbname = Config::get('grampsdb.database.connections.grampsdb');
+        // get a connName either from value specified, configuration or default
+        if (empty($connName)) {
+            $confdbname = Config::get('grampsdb.database.connections.grampsdb');
+            $connName = (empty($confdbname) ? self::$dbConn : $confdbname );
+        }
+
         return DB::connection($connName);
     }
 
@@ -672,6 +676,15 @@ class GrampsdbHelper
         return $reference;
     }
 
+    /**
+     * generic wrapper to pull 'subclass' data for record types that have a 'handle' pointer to some other record
+     *   e.g. can be used to pull persons for family records, or associated records for reference entries
+     *
+     * @param string $classType
+     * @param string $handle
+     * @param boolean $withExtra defaults false
+     * @return \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Query\Builder|object|null
+     */
     public static function getSubClass($classType, $handle, $withExtra=false)
     {
         $subClass = null;
@@ -710,7 +723,7 @@ class GrampsdbHelper
     }
 
     /**
-     * @param $pid
+     * @param string $pid
      * @param null|string $rc
      * @return \Illuminate\Support\Collection|void
      * @see getPersonHandleById()
@@ -735,6 +748,10 @@ class GrampsdbHelper
     // </editor-fold desc="reference table record accessors">
 
     // <editor-fold desc="source table record accessors">
+    /**
+     * @param string $shan
+     * @return object|null
+     */
     public static function getSourceByHandle($shan)
     {
         $sRec = self::getDbHandle()->table('source')->where(['handle' => $shan])->first();
@@ -755,6 +772,10 @@ class GrampsdbHelper
     // <editor-fold desc="blob_data handlers">
 
     // <editor-fold desc="citation blob handler">
+    /*
+     *  'prep' prefixed methods handle the mapping of blob data
+     * (adding relevant keys and TYPE values)
+     */
     /**
      * map keys into citation type blob_data
      *
