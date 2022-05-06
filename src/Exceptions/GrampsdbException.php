@@ -1,6 +1,6 @@
 <?php
 
-namespace Treii28\Grampsdb;
+namespace Treii28\Grampsdb\Exceptions;
 
 class GrampsdbException extends \Exception
 {
