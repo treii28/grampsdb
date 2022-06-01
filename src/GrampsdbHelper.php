@@ -323,10 +323,14 @@ class GrampsdbHelper
      * @param string $chan
      * @return \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Query\Builder|object|null
      */
-    public static function getCitationByHandle($chan)
+    public static function getCitationByHandle($chan, $withSubs = false, $subsRecursive=false)
     {
         $cRec = self::getDbHandle()->table('citation')->where(['handle' => $chan])->first();
         self::prepCitation($cRec);
+        if($withSubs == true) {
+            if(property_exists($cRec, 'source_handle') && !empty($cRec->source_handle))
+                $cRec->source = self::getSourceByHandle($cRec->source_handle, $subsRecursive);
+        }
         return $cRec;
     }
 
@@ -536,6 +540,7 @@ class GrampsdbHelper
     // <editor-fold desc="person table record accessors">
     /**
      *  retrieve a full list of persons from the grampsdb
+     *
      * @param boolean $withExtra
      * @return array
      */
@@ -569,15 +574,55 @@ class GrampsdbHelper
     /**
      * get a specific person by their handle, optionally collecting their media as well
      *
-     * @param string $ghan
-     * @param false $withMedia whether to get all associated media references as a sub-element of the array
+     * @param string $pHan
+     * @param false $withSubs whether to get all associated media references as a sub-element of the array
      * @return \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Query\Builder|object|null
      * @see getMediaByPersonHandle()
      */
-    public static function getPersonByHandle($ghan, $withMedia = false)
+    public static function getPersonByHandle($pHan, $withSubs = false, $subRecursive = false)
     {
-        $pObj = self::getDbHandle()->table('person')->where('handle', $ghan)->first();
-        self::prepPerson($pObj, $withMedia);
+        $pObj = self::getDbHandle()->table('person')->where('handle', $pHan)->first();
+        self::prepPerson($pObj);
+
+        if ($withSubs) {
+            foreach([
+                        'citations' => "Citation",
+                        'events' => "Event",
+                        'family' => "Family",
+                        'media' => "Media",
+                        'note' => "Note"
+                    ] as $k => $v) {
+                $result = self::getReferences([
+                    'obj_class' => 'Person',
+                    'obj_handle' => $pHan,
+                    'ref_class' => $v
+                ], $withSubs, $subRecursive);
+                $pObj->$k = $result;
+            }
+            if(property_exists($pObj, 'family') && is_array($pObj->family)) {
+                foreach($pObj->family as $f) {
+                    if(property_exists($f, 'ref') && is_object($f->ref)) {
+                        if((property_exists($f->ref, 'father_handle') && $f->ref->father_handle == $pHan) || (property_exists($f->ref, 'wife_handle') && $f->ref->wife_handle == $pHan)) {
+                            if(property_exists($f->ref, 'type_data') && is_array($f->ref->type_data) && array_key_exists('event_ref_list', $f->ref->type_data) && is_array($f->ref->type_data['event_ref_list'])) {
+                                $spEvts = [];
+                                foreach($f->ref->type_data['event_ref_list'] as $e) {
+                                    array_push($spEvts, GrampsdbHelper::getEventByHandle($e[3]));
+                                }
+                                if(count($spEvts) > 0)
+                                    $pObj->spouse->events = $spEvts;
+                            }
+                            $pObj->spouse = $f->ref;
+                        } elseif(property_exists($f->ref, 'type_data') && is_array($f->ref->type_data) && array_key_exists('child_ref_list', $f->ref->type_data)) {
+                            foreach($f->ref->type_data['child_ref_list'] as $c) {
+                                if(is_array($c) && $c[3] == $pHan) {
+                                    $pObj->parents = $f->ref;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         return $pObj;
     }
@@ -619,36 +664,48 @@ class GrampsdbHelper
             if(property_exists($evt, 'ref')) {
                 if(property_exists($evt->ref, 'type') && property_exists($evt->ref, 'type_data') && ($evt->ref->type === "Event")) {
 
+                    $eGid = $evt->ref->gramps_id;
+                    $dateVal = "UNKNOWN"; // todo try to determine why 'residence' come back with date unknown
+                    $dStr = $dateVal . '-' . $eGid;
                     if(array_key_exists('date', $evt->ref->type_data) && array_key_exists('type', $evt->ref->type_data)) {
-                        // skip events for 'death' and 'living'
-                        if (
-                            strcmp(strtolower($evt->ref->type_data['type']['type_name']),'death') &&
-                            strcmp(strtolower($evt->ref->type_data['date'][4]), "living")
-                        ) {
-                            // do nothing
-                        } else {
-                            $dDat = $evt->ref->type_data['date'][4];
-                            $dStr = strtotime($dDat);
-                            $event = [
-                                'date' =>  date('F j, Y', strtotime($dDat)),
-                                'type' => $evt->ref->type_data['type']['type_name'],
-                                'handle' => $evt->ref_handle,
-                                'gramps_id' => $evt->ref->gramps_id
-                            ];
-                            if(property_exists($evt->ref, 'place') && !empty($evt->ref->place)) {
-                                $plObj = null;
-                                if(is_object($evt->ref->place))
-                                    $plObj = $evt->ref->place;
-                                if(is_string($evt->ref->place)) {
-                                    $plObj = self::getPlaceByHandle($evt->ref->place);
+                        if(is_array($evt->ref->type_data['date'])) {
+                            // skip events for 'death' and 'living'
+                            if (
+                                strcmp(strtolower($evt->ref->type_data['type']['type_name']),'death') == 0 &&
+                                strcmp(strtolower($evt->ref->type_data['date'][4]), "living") == 0
+                            ) {
+                                $dateVal = "living";
+                            } else {
+                                $dDat = $evt->ref->type_data['date'][4];
+                                if(preg_match('/^\d{4}$/', $dDat)) {
+                                    $dDat = "Jan 01 ".$dDat;
                                 }
-                                if(is_object($plObj) && property_exists($plObj, 'title') && !empty($plObj->title)) {
-                                    $event['place'] = $plObj->title;
-                                }
+                                $dStr = date('Ymd', strtotime($dDat)) . '-' . $eGid;
+                                $tStr = strtotime($dDat);
+                                $dateVal = date('F j, Y', strtotime($dDat));
                             }
-                            $sEvt[$dStr] = $event;
+                        }
+                        $event = [
+                            'date' =>  $dateVal,
+                            'type' => $evt->ref->type_data['type']['type_name'],
+                            'handle' => $evt->ref_handle,
+                            'gramps_id' => $evt->ref->gramps_id
+                        ];
+                    }
+                    // todo get date and possibly place from Citation if not filled in correctly in event
+                    if(property_exists($evt->ref, 'place') && !empty($evt->ref->place)) {
+                        $plObj = null;
+                        if(is_object($evt->ref->place))
+                            $plObj = $evt->ref->place;
+                        if(is_string($evt->ref->place)) {
+                            $plObj = self::getPlaceByHandle($evt->ref->place);
+                        }
+                        if(is_object($plObj) && property_exists($plObj, 'title') && !empty($plObj->title)) {
+                            $event['place'] = $plObj->title;
                         }
                     }
+                    if(!empty($event['date']) && !empty($event['place']))
+                        $sEvt[$dStr] = $event;
                 } else
                     throw new GrampsdbException(sprintf("%s - invalid event object", __METHOD__));
             } else
@@ -674,7 +731,7 @@ class GrampsdbHelper
     public static function getPlaceByHandle($phan)
     {
         $pRec = self::getDbHandle()->table('place')->where(['handle' => $phan])->first();
-        self::prepNote($pRec);
+        self::prepPlace($pRec);
         return $pRec;
     }
 
@@ -735,14 +792,14 @@ class GrampsdbHelper
         }
 
         $refArray = [];
-        foreach($gRefs as $k => $r) {
+        foreach($gRefs as $r) {
             if ($withSubs == true) {
-                $r->obj = self::getSubClass($r->obj_class, $r->obj_handle, $subsRecursive, $subsRecursive);
+                $r->obj = self::getSubClass($r->obj_class, $r->obj_handle, false, false);
                 $r->obj->type = $r->obj_class;
-                $r->ref = self::getSubClass($r->ref_class, $r->ref_handle, $subsRecursive, $subsRecursive);
+                $r->ref = self::getSubClass($r->ref_class, $r->ref_handle, $withSubs, $subsRecursive);
                 $r->ref->type = $r->ref_class;
             }
-            $refArray[$k] = $r;
+            array_push($refArray, $r); // 12360 6 F2F1
         }
         return $refArray;
     }
@@ -781,15 +838,15 @@ class GrampsdbHelper
         switch ($classType) {
             case 'citation':
             case 'Citation':
-                $subClass = self::getCitationByHandle($handle);
+                $subClass = self::getCitationByHandle($handle, $withSubs, $subsRecursive);
                 break;
             case 'event':
             case 'Event':
-                $subClass = self::getEventByHandle($handle);
+                $subClass = self::getEventByHandle($handle, $withSubs, $subsRecursive);
                 break;
             case 'family':
             case 'Family':
-                $subClass = self::getFamilyByHandle($handle, $withSubs);
+                $subClass = self::getFamilyByHandle($handle, $withSubs, $subsRecursive);
                 break;
             case 'media':
             case 'Media':
@@ -797,22 +854,22 @@ class GrampsdbHelper
                 break;
             case 'note':
             case 'Note':
-                $subClass = self::getNoteByHandle($handle);
+                $subClass = self::getNoteByHandle($handle, $withSubs, $subsRecursive);
                 break;
             case 'Person':
-                $subClass = self::getPersonByHandle($handle);
+                $subClass = self::getPersonByHandle($handle, $withSubs, $subsRecursive);
                 break;
             case 'place':
             case 'Place':
-                $subClass = self::getPlaceByHandle($handle);
+                $subClass = self::getPlaceByHandle($handle, $withSubs, $subsRecursive);
                 break;
             case 'repository':
             case 'Repository':
-                $subClass = self::getRepositoryByHandle($handle);
+                $subClass = self::getRepositoryByHandle($handle, $withSubs, $subsRecursive);
                 break;
             case 'source':
             case 'Source':
-                $subClass = self::getSourceByHandle($handle);
+                $subClass = self::getSourceByHandle($handle, $withSubs, $subsRecursive);
                 break;
             default:
                 break;
@@ -850,7 +907,7 @@ class GrampsdbHelper
      * @param string $shan
      * @return object|null
      */
-    public static function getSourceByHandle($shan)
+    public static function getSourceByHandle($shan, $withSubs=false, $subsRecursive=false)
     {
         $sRec = self::getDbHandle()->table('source')->where(['handle' => $shan])->first();
         self::prepSource($sRec);
@@ -1259,7 +1316,7 @@ class GrampsdbHelper
         ];
     }
 
-    private static function prepPerson(&$pObj, $withMedia=false)
+    private static function prepPerson(&$pObj)
     {
         // decode blob_data if any
         if (property_exists($pObj, 'blob_data')) {
@@ -1270,8 +1327,6 @@ class GrampsdbHelper
                 unset($pObj->blob_data);
             }
         }
-        if ($withMedia)
-            $pObj->media = self::getMediaByPersonHandle($pObj->handle);
     }
     // </editor-fold desc="person blob handler">
 
