@@ -17,7 +17,7 @@ class GrampsdbServiceProvider extends ServiceProvider
         // $this->loadTranslationsFrom(__DIR__.'/../resources/lang', 'treii28');
         // $this->loadViewsFrom(__DIR__.'/../resources/views', 'treii28');
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
-        // $this->loadRoutesFrom(__DIR__.'/routes.php');
+        $this->loadRoutesFrom(__DIR__.'/../routes/routes.php');
 
         Config::set('database.connections.grampsdb',
             Config::get('grampsdb.database.connections.grampsdb'));
