@@ -60,7 +60,7 @@ class GrampersController extends Controller
             'region' => env('AWS_REGION'),
             'path' => env('GEDCOM_MEDIA_PATH')
         ];
-        return view('grampers.show', [ 'person' => $person, 'aws' => $aws ] );
+        return view('grampsdb::grampers.show', [ 'person' => $person, 'aws' => $aws ] );
     }
 
     /**

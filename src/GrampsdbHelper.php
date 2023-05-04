@@ -7,6 +7,7 @@ namespace Treii28\Grampsdb;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Treii28\Grampsdb\Exceptions\GrampsdbException;
+use Treii28\Grampsdb\Models\Unpicklecache;
 
 class GrampsdbHelper
 {
