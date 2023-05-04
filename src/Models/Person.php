@@ -3,12 +3,16 @@
 namespace Treii28\Grampsdb\Models;
 
 //use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Person extends GrampsdbModel
+class Person extends Model
 {
     //use HasFactory;
+
+    protected $connection = 'grampsdb';
+
     /**
      * default name to use for the config values database table
      */

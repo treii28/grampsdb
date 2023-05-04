@@ -5,9 +5,12 @@ namespace Treii28\Grampsdb\Models;
 //use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Relation extends GrampsdbModel
+class Relation extends Model
 {
     //use HasFactory;
+
+    protected $connection = 'grampsdb';
+
     const VALID_TYPES = [
         'child',
         'guardian',

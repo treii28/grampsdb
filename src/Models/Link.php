@@ -4,10 +4,15 @@ namespace Treii28\Grampsdb\Models;
 
 //use Illuminate\Database\Eloquent\Factories\HasFactory;
 
-class Link extends GrampsdbModel
+use Illuminate\Database\Eloquent\Model;
+
+class Link extends Model
 {
     //use HasFactory;
     //use HasFactory;
+
+    protected $connection = 'grampsdb';
+
     /**
      * default name to use for the config values database table
      */
