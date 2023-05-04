@@ -4,7 +4,7 @@ namespace Treii28\Grampsdb\Models;
 
 use Illuminate\Database\Eloquent\Relations\Pivot;
 
-class person_links extends GrampsdbPivot
+abstract class GrampsdbPivot extends Pivot
 {
     protected $connection = 'grampsdb';
 }
