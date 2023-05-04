@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Unpicklecache extends Model
 {
-    protected $connection = 'grampsdb';
+    //protected $connection = 'grampsdb';
 
     //use HasFactory;
     protected $fillable = [
