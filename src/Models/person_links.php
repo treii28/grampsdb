@@ -6,5 +6,5 @@ use Illuminate\Database\Eloquent\Relations\Pivot;
 
 class person_links extends Pivot
 {
-    protected $connection = 'grampsdb';
+    protected $connection = 'woodgen';
 }

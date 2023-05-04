@@ -11,7 +11,7 @@ class Person extends Model
 {
     //use HasFactory;
 
-    protected $connection = 'grampsdb';
+    protected $connection = 'woodgen';
 
     /**
      * default name to use for the config values database table

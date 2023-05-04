@@ -9,7 +9,7 @@ class Relation extends Model
 {
     //use HasFactory;
 
-    protected $connection = 'grampsdb';
+    protected $connection = 'woodgen';
 
     const VALID_TYPES = [
         'child',

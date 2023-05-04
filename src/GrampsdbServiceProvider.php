@@ -68,6 +68,7 @@ class GrampsdbServiceProvider extends ServiceProvider
         // publish a default grampsdb starter database
         $this->publishes([
             __DIR__.'/../database/data/grampsdb.sqlite' => database_path('data/grampsdb.sqlite'),
+            __DIR__.'/../database/data/woodgen.sqlite' => database_path('data/woodgen.sqlite'),
         ], 'grampsdb.database');
 
         // Publishing the views.
