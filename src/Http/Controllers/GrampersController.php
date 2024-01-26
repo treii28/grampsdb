@@ -22,7 +22,7 @@ class GrampersController extends Controller
     public function index()
     {
         $persons = GrampsdbHelper::getPersons();
-        return View::make('grampers.index')->with('persons', $persons);
+        return View::make('grampers::grampers.index')->with('persons', $persons);
     }
 
     /**

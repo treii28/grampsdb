@@ -15,7 +15,7 @@ class GrampsdbServiceProvider extends ServiceProvider
     public function boot(): void
     {
         // $this->loadTranslationsFrom(__DIR__.'/../resources/lang', 'treii28');
-        $this->loadViewsFrom(__DIR__.'/../resources/views', 'treii28');
+        $this->loadViewsFrom(__DIR__.'/../resources/views', 'grampers');
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
         $this->loadRoutesFrom(__DIR__.'/../routes/routes.php');
 
