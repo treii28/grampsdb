@@ -12,7 +12,8 @@
     "homepage": "https://github.com/treii28/grampsdb-laravel",
     "keywords": ["Laravel", "Grampsdb", "gramps", "genealogy", "GEDCOM"],
     "require": {
-        "illuminate/support": "~8"
+        "php": "^7.0|^8.0",
+        "illuminate/support": "*"
     },
     "require-dev": {
         "phpunit/phpunit": "~9.0",
