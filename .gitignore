@@ -96,3 +96,6 @@ Homestead.json
 /.vagrant
 .phpunit.result.cache
 
+/composer.lock
+/.idea/grampsdb-laravel.iml
+/.idea/modules.xml
