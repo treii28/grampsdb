@@ -21,6 +21,9 @@
         "orchestra/testbench": "~9"
     },
     "autoload": {
+        "files": [
+            "src/helpers.php"
+        ],
         "psr-4": {
             "Tests\\": "tests/",
             "Treii28\\Grampsdb\\": "src/"
