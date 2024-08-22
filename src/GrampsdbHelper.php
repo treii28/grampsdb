@@ -19,69 +19,6 @@ class GrampsdbHelper
     protected static $dbConn = 'grampsdb';
 
     /**
-     * characters special to a url that can be used in urlEncode
-     * @var string[] $url_special
-     * @see urlEncode()
-     */
-    protected static $url_special = [
-        "/" => '%2F',
-        "=" => '%3D',
-        "?" => '%3F',
-        "%" => '%25',
-        "&" => '%26',
-    ];
-
-    /**
-     * list of characters and replacements which can be used with urlEncode()
-     *
-     * @var string[] $url_entities
-     * @see urlEncode()
-     */
-    protected static $url_entities = [
-        ' ' => '%20',
-        '!' => '%21',
-        '"' => '%22',
-        "#" => '%23',
-        "$" => '%24',
-        "'" => '%27',
-        "(" => '%28',
-        ")" => '%29',
-        '*' => '%2A',
-        "+" => '%2B',
-        "," => '%2C',
-        ":" => '%3A',
-        ";" => '%3B',
-        "@" => '%40',
-        "[" => '%5B',
-        "]" => '%5D'
-    ];
-
-    /**
-     * @param null|string $path
-     * @return string|null
-     * @throws \Exception if unable to find a valid python executable
-     */
-    private static function getPythonExecutable($path = null)
-    {
-        $pyExe = null;
-
-        if (is_file($path) && is_executable($path)) { // use specified if available
-            $pyExe = $path;
-        } else if (function_exists('env')) { // use env if available
-            $pyExe = env('PYTHON_EXE');
-        } else if (is_file('/usr/bin/which') && is_executable('/usr/bin/which')) {
-            // see if it is in the unix path
-            $pyExe = exec('/usr/bin/which python');
-        }
-
-        // did we find something useable?
-        if (!is_file($pyExe) && is_executable($pyExe))
-            throw new \Exception("python executable not found!");
-
-        return $pyExe;
-    }
-
-    /**
      * assign the configuration key for the grampsdb
      *
      * @param string $connName
@@ -110,13 +47,13 @@ class GrampsdbHelper
 
     public static function unpickleCached($b, $dataType, $gramps_id)
     {
-        if (!self::isBinary($b))
+        if (!is_binary_data($b))
             throw new GrampsdbException(sprintf("%s - invalid blob_data"));
         $bHash = sha1(base64_encode($b));
         $bch = Unpicklecache::where(['dataType' => $dataType, 'gramps_id' => $gramps_id])->first();
 
         if (!(($bch instanceof Unpicklecache) && ($bHash == $bch->hash))) {
-            $output = self::unpickle($b);
+            $output = unpickle($b);
             if (!($bch instanceof Unpicklecache)) {
                 $bch = new Unpicklecache();
                 $bch->dataType = $dataType;
@@ -127,193 +64,6 @@ class GrampsdbHelper
             $bch->save();
         }
         return json_decode($bch->json);
-    }
-
-    /**
-     * call either a pyinstaller binary or python script with raw blob data to be unpickled
-     *
-     * @param string $b binary data of blob
-     * @return false|mixed
-     */
-    public static function unpickle($b)
-    {
-        $cmd = realpath(__DIR__ . "/../bin/unpickle");
-        // see if an environment unpickle binary has been specified
-        if (function_exists('env') && is_file(env('UNPICKLE_BINARY')) && is_executable(env('UNPICKLE_BINARY')))
-            $cmd = base_path(env('UNPICKLE_BINARY'));
-        if (!(is_file($cmd) && is_executable($cmd))) { // make sure unpickle cmd exists
-            // try to see if the python script exists if no binary does
-            if (is_file($cmd . ".py")) {
-                $cmd = sprintf("%s %s.py", self::getPythonExecutable(), $cmd);
-            } else
-                return self::unpyckle($b); // try direct python call
-        }
-
-        // use proc_open to execute python code using raw binary data from stdin
-        $descriptorspec = [
-            ["pipe", "r"],  // stdin is a pipe that the child will read from
-            ["pipe", "w"],  // stdout is a pipe that the child will write to
-            ["pipe", "w"]   // stderr is a file to write to
-        ];
-
-        $cwd = dirname($cmd);
-        $env = [];
-
-        $process = proc_open($cmd, $descriptorspec, $pipes, $cwd, $env);
-
-        if (is_resource($process)) {
-            // $pipes now looks like this:
-            // 0 => writeable handle connected to child stdin
-            // 1 => readable handle connected to child stdout
-            // 2 => readable handle connected to child stderr
-
-            fwrite($pipes[0], $b);
-            fclose($pipes[0]);
-
-            $output = stream_get_contents($pipes[1]);
-            fclose($pipes[1]);
-
-            // It is important that you close any pipes before calling
-            // proc_close in order to avoid a deadlock
-            $return_value = proc_close($process);
-
-            if (self::isJson($output))
-                return json_decode($output);
-            else
-                return false;
-        }
-        return false;
-    }
-
-    /**
-     * use a python exec call to 'unpickle' the blob_data
-     *   to get the binary blob into a command line argument, base64 encode it
-     *   to get the data back out of python, json serialize it
-     * @param string $blob binary blob data
-     * @return mixed
-     */
-    public static function unpyckle($blob)
-    {
-        $bblob = base64_encode($blob);
-        $cmd = sprintf("import pickle; import base64; import json; print(json.dumps(pickle.loads(base64.b64decode('%s'))))", $bblob);
-        //file_put_contents(base_path("tests")."/blob.out", $blob);
-        $pcmd = sprintf("%s -c \"%s\"", self::getPythonExecutable(), $cmd);
-        $result = exec($pcmd);
-        $resdec = json_decode($result);
-        return $resdec;
-    }
-
-    /**
-     * Use it for json_encode some corrupt UTF-8 chars
-     * useful for = malformed utf-8 characters possibly incorrectly encoded by json_encode
-     * @param $mixed
-     * @return array|false|mixed|string|string[]|null
-     */
-    public static function utf8ize($mixed)
-    {
-        if (is_object($mixed))
-            $mixed = (array)$mixed;
-        if (is_array($mixed)) {
-            // make sure any blob data has already been unpickled to an array
-            if (array_key_exists('blob_data', $mixed) && !is_array($mixed['blob_data']))
-                $mixed['blob_data'] = self::unpyckle($mixed['blob_data']);
-            foreach ($mixed as $key => $value) {
-                $mixed[$key] = self::utf8ize($value);
-            }
-        } elseif (is_string($mixed)) {
-            return mb_convert_encoding($mixed, "UTF-8", "UTF-8");
-        }
-        return $mixed;
-    }
-
-    /**
-     * test an array to see if it appears to be an associative array
-     *
-     * @param mixed $arr
-     * @return bool
-     * @static
-     */
-    public static function isAssoc($arr)
-    {
-        if (!is_array($arr)) return false;
-        if (array() === $arr) return false;
-        return array_keys($arr) !== range(0, count($arr) - 1);
-    }
-
-    /**
-     * try to detect if a string is a json string
-     *
-     * @param $str
-     * @return bool
-     */
-    public static function isJson($str)
-    {
-        if (is_string($str) && !empty($str)) {
-            json_decode($str);
-            return (json_last_error() == JSON_ERROR_NONE);
-        }
-        return false;
-    }
-
-    /**
-     * custom url encode using specified associative array of replacements
-     *   will default to self::$url_entities if no replacement list is given
-     * @param string $string
-     * @param array $incSpec
-     * @return string
-     */
-    public static function urlEncode($string, $entities = null)
-    {
-        if (is_null($entities))
-            $entities = self::$url_entities;
-
-        if (!self::isAssoc($entities))
-            throw new \Exception("invalid replacement list");
-
-        return str_replace(array_keys($entities), array_values($entities), $string);
-    }
-
-    /**
-     * map a given media file record to point to a URL in an AWS S3 bucket
-     *
-     * @param string $filename
-     * @param null|string $path
-     * @param null|string $bucket
-     * @param null|string $region
-     * @return string
-     * @throws \Exception
-     */
-    public static function getUrlFromAwsBucket($filename, $path = null, $bucket = null, $region = null)
-    {
-        if (empty($region) && function_exists('env'))
-            $region = env('AWS_REGION', 'us-east-1');
-        if (empty($bucket) && function_exists('env'))
-            $bucket = env('AWS_BUCKET', 'grampsmedia');
-        // replace any backslashes and get rid of any leading or trailing slashes or whitespace on path
-        if (!empty($path)) {
-            // swap backslashes and remove multiple separators
-            $path = preg_replace("|[\\\\/]+|", "/", $path);
-            // remove any leading path separator
-            $path = preg_replace('|[/\s]*$|', '', $path);
-            // remove any trailing path separator
-            $path = preg_replace('|^[/\s]*|', '', $path);
-        }
-        // if the (stripped) path is not empty, add a trailing slash to the path
-        $fullpath = self::urlEncode((empty($path) ? '' : $path . "/") . $filename);
-
-        return sprintf('https://%s.s3.%s.amazonaws.com/%s', $bucket, $region, $fullpath);
-    }
-
-    /**
-     * Determine whether the given value is a binary string by checking to see if it has detectable character encoding.
-     *
-     * @param string $value
-     *
-     * @return bool
-     */
-    public static function isBinary($value): bool
-    {
-        return false === mb_detect_encoding((string)$value, null, true);
     }
     // </editor-fold desc="utility functions">
 
@@ -773,7 +523,7 @@ class GrampsdbHelper
         $gRefs = [];
         if(is_integer($search)) {
             array_push($gRefs, self::getDbHandle()->table('reference')->find($search));
-        } else if(self::isAssoc($search)) {
+        } else if(is_associative_array($search)) {
             $where = [];
             if(array_key_exists('obj_class', $search) && is_string($search['obj_class']))
                 $where['obj_class'] = ucfirst(strtolower($search['obj_class']));
@@ -1188,7 +938,7 @@ class GrampsdbHelper
     {
         // decode blob_data if any
         if (property_exists($mObj, 'blob_data')) {
-            $blob_data = self::unpyckle($mObj->blob_data);
+            $blob_data = unpyckle($mObj->blob_data);
             $mObj->type_data = self::mapMediaData($blob_data);
             unset($mObj->blob_data);
         }
@@ -1197,7 +947,7 @@ class GrampsdbHelper
         // insert relative url from site root for this server
         //$mRec->url = preg_replace('|.*'.DIRECTORY_SEPARATOR.'([^'.DIRECTORY_SEPARATOR.']+)$|', '/'.$mPath."/$1", $mRec->path);
         $media_path = (function_exists('env') ? env('GEDCOM_MEDIA_PATH', 'gedcomx/media') : 'gedcomx/media');
-        $mObj->url = self::getUrlFromAwsBucket(basename($mObj->path), $media_path);
+        $mObj->url = get_url_from_aws_bucket(basename($mObj->path), $media_path);
         if ($skipPath) unset($mObj->path); // remove path if not relevant to local resources
     }
     // </editor-fold desc="media blob handler">

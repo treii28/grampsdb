@@ -18,7 +18,7 @@ class GrampsdbHelperTest extends TestCase
             ->first();
         $this->assertIsObject($record);
         $blob = $record->blob_data;
-        $data = GrampsdbHelper::unpickle($blob);
+        $data = unpickle($blob); // now in helper
         $this->assertIsArray($data);
     }
 }
