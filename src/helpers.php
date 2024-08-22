@@ -175,7 +175,7 @@ if(! function_Exists('get_python_executable')) {
 
         if (is_file($path) && is_executable($path)) { // use specified if available
             $pyExe = $path;
-        } else if (function_exists('env')) { // use env if available
+        } else if (function_exists('env') && !empty(env('PYTHON_EXE'))) { // use env if available
             $pyExe = env('PYTHON_EXE');
         } else if (is_file('/usr/bin/which') && is_executable('/usr/bin/which')) {
             // see if it is in the unix path
