@@ -7,7 +7,8 @@ namespace Treii28\Grampsdb;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Treii28\Grampsdb\Exceptions\GrampsdbException;
-use Treii28\GenAdmin\Models\Unpicklecache;
+//use Treii28\Grampsdb\Models\Unpicklecache;
+use Treii28\Grampsdb\Models\Unpicklecache;
 
 class GrampsdbHelper
 {
@@ -50,7 +51,7 @@ class GrampsdbHelper
         if (!is_binary_data($b))
             throw new GrampsdbException(sprintf("%s - invalid blob_data"));
         $bHash = sha1(base64_encode($b));
-        $bch = Unpicklecache::where(['dataType' => $dataType, 'gramps_id' => $gramps_id])->first();
+        $bch = Unpicklecach::where(['dataType' => $dataType, 'gramps_id' => $gramps_id])->first();
 
         if (!(($bch instanceof Unpicklecache) && ($bHash == $bch->hash))) {
             $output = unpickle($b);

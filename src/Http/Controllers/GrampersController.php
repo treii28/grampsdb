@@ -2,8 +2,8 @@
 
 namespace Treii28\Grampsdb\Http\Controllers;
 
-use Illuminate\Routing\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\View;
 use Treii28\Grampsdb\GrampsdbHelper;
 
@@ -22,7 +22,7 @@ class GrampersController extends Controller
     public function index()
     {
         $persons = GrampsdbHelper::getPersons();
-        return View::make('grampers::grampers.index')->with('persons', $persons);
+        return View::make('grampers.index')->with('persons', $persons);
     }
 
     /**
@@ -60,7 +60,7 @@ class GrampersController extends Controller
             'region' => env('AWS_REGION'),
             'path' => env('GEDCOM_MEDIA_PATH')
         ];
-        return view('grampsdb::grampers.show', [ 'person' => $person, 'aws' => $aws ] );
+        return view('grampers.show', [ 'person' => $person, 'aws' => $aws ] );
     }
 
     /**

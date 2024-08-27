@@ -5,26 +5,24 @@ namespace Treii28\Grampsdb\Models;
 use Illuminate\Database\Eloquent\Model;
 //use Illuminate\Database\Eloquent\Factories\HasFactory;
 
-class Unpicklecache extends Model
+class Link extends Model
 {
-    //protected $connection = 'woodgen';
-
     //use HasFactory;
+
+    //protected $connection = 'woodgen';
 
     /**
      * default name to use for the config values database table
      */
-    const SHORTNAME = "unpicklecache";
+    const SHORTNAME = "link";
 
     /**
      * for laravel to specify configurable values
      */
     const FILLABLE_COLUMNS = [
-        'dataType',
-        'gramps_id',
-        //'sha1', 'md5',
-        // 'raw',
-        'mapped'
+        "person_id",
+        "url",
+        "text"
     ];
 
     /**
@@ -37,11 +35,9 @@ class Unpicklecache extends Model
     public static function getTableBlueprint(\Illuminate\Database\Schema\Blueprint $table)
     {
         $table->id();
-        $table->string("dataType");
-        $table->string("gramps_id");
-        $table->string("hash");
-        //$table->binary("raw");
-        $table->binary("json");
+
+        $table->string("url");
+        $table->string("text");
 
         $table->timestamps();
     }
@@ -53,4 +49,8 @@ class Unpicklecache extends Model
      */
     protected $fillable = self::FILLABLE_COLUMNS;
 
+    public function persons()
+    {
+        return $this->hasManyThrough(Person::class, person_links::class, 'link_id', 'person_id');
+    }
 }

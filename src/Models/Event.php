@@ -5,26 +5,24 @@ namespace Treii28\Grampsdb\Models;
 use Illuminate\Database\Eloquent\Model;
 //use Illuminate\Database\Eloquent\Factories\HasFactory;
 
-class Unpicklecache extends Model
+class Event extends Model
 {
-    //protected $connection = 'woodgen';
-
     //use HasFactory;
+
+    //protected $connection = 'woodgen';
 
     /**
      * default name to use for the config values database table
      */
-    const SHORTNAME = "unpicklecache";
+    const SHORTNAME = "event";
 
     /**
      * for laravel to specify configurable values
      */
     const FILLABLE_COLUMNS = [
-        'dataType',
-        'gramps_id',
-        //'sha1', 'md5',
-        // 'raw',
-        'mapped'
+        "eventName",
+        "eventType",
+        "eventDate"
     ];
 
     /**
@@ -37,13 +35,15 @@ class Unpicklecache extends Model
     public static function getTableBlueprint(\Illuminate\Database\Schema\Blueprint $table)
     {
         $table->id();
-        $table->string("dataType");
-        $table->string("gramps_id");
-        $table->string("hash");
-        //$table->binary("raw");
-        $table->binary("json");
+        $table->unsignedBigInteger('person_id');
+        $table->string("eventName");
+        $table->enum("eventType",['birth','marriage','divorce','residence','enlistment','death','other']);
+        $table->date("eventDate");
 
         $table->timestamps();
+
+        $table->foreign('person_id')->references('id')->on(Person::getTableName())
+            ->onDelete('cascade');
     }
 
     /**
