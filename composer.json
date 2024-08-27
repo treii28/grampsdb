@@ -26,7 +26,8 @@
         ],
         "psr-4": {
             "Tests\\": "tests/",
-            "Treii28\\Grampsdb\\": "src/"
+            "Treii28\\Grampsdb\\": "src/",
+            "Database\\Seeders\\": "database/seeders/"
         }
     },
     "autoload-dev": {
