@@ -2,11 +2,12 @@
 
 namespace Database\Seeders;
 
+use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Treii28\Grampsdb\GrampsdbHelper;
 
-class CacheSeeder extends \Illuminate\Database\Seeder
+class CacheSeeder extends Seeder
 {
     /**
      * Seed the application's database.
