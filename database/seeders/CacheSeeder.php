@@ -1,6 +1,6 @@
 <?php
 
-namespace Treii28\Grampsdb\Database;
+namespace Database\Seeders;
 
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
