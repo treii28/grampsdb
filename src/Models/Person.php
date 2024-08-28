@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 //use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Treii28\Grampsdb\Grampsdb;
 use Treii28\Grampsdb\GrampsdbHelper;
 
 class Person extends Model
@@ -40,12 +41,9 @@ class Person extends Model
     /**
      * @var string $table
      */
-    protected $table = self::SHORTNAME . 's';
+    protected $table = Grampsdb::TABLE_PREFIX . self::SHORTNAME . 's';
 
-    public static function getTableName()
-    {
-        return self::SHORTNAME . 's';
-    }
+    public static function getTableName() { return Grampsdb::TABLE_PREFIX . self::SHORTNAME . 's'; }
 
     public static function getTableBlueprint(\Illuminate\Database\Schema\Blueprint $table)
     {
@@ -80,8 +78,6 @@ class Person extends Model
     {
         if(!empty($gramps_id))
             return Person::where('gramps_id', $gramps_id)->first();
-        elseif(!empty($this->gramps_id))
-            return Person::where('gramps_id', $this->gramps_id)->first();
         else
             return null;
     }

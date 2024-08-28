@@ -51,7 +51,7 @@ class GrampsdbHelper
         if (!is_binary_data($b))
             throw new GrampsdbException(sprintf("%s - invalid blob_data"));
         $bHash = sha1(base64_encode($b));
-        $bch = Unpicklecach::where(['dataType' => $dataType, 'gramps_id' => $gramps_id])->first();
+        $bch = Unpicklecache::where(['dataType' => $dataType, 'gramps_id' => $gramps_id])->first();
 
         if (!(($bch instanceof Unpicklecache) && ($bHash == $bch->hash))) {
             $output = unpickle($b);

@@ -208,7 +208,7 @@ if(! function_exists('unpickle')) {
      * @param string $b binary data of blob
      * @return false|mixed
      */
-    function unpickle(mixed $b): ?object
+    function unpickle(mixed $b): ?array
     {
         $cmd = realpath(__DIR__ . "/../bin/unpickle");
         // see if an environment unpickle binary has been specified
@@ -251,7 +251,7 @@ if(! function_exists('unpickle')) {
             $return_value = proc_close($process);
 
             if (is_json_string($output))
-                return json_decode($output);
+                return json_decode($output, true);
             else
                 return null;
         }

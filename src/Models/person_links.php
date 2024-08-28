@@ -3,6 +3,7 @@
 namespace Treii28\Grampsdb\Models;
 
 use Illuminate\Database\Eloquent\Relations\Pivot;
+use Treii28\Grampsdb\Grampsdb;
 
 class person_links extends Pivot
 {
@@ -16,9 +17,9 @@ class person_links extends Pivot
     /**
      * @var string $table
      */
-    protected $table = self::SHORTNAME . 's';
+    protected $table = Grampsdb::TABLE_PREFIX . self::SHORTNAME . 's';
 
-    public static function getTableName() { return self::SHORTNAME . 's'; }
+    public static function getTableName() { return Grampsdb::TABLE_PREFIX . self::SHORTNAME . 's'; }
 
     public static function getTableBlueprint(\Illuminate\Database\Schema\Blueprint $table)
     {

@@ -1,7 +1,7 @@
 <?php
 return [
     'database' => [
-        'default' => env('GRAMPSDB_CONNECTION', 'sqlite'),
+        'default' => env('GRAMPSDB_CONNECTION', 'grampsdb'),
 
         'connections' => [
             'grampsdb' => [
